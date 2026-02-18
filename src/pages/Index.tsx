@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
-import { calcPrevisaoParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
+import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate } from "@/lib/dateUtils";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
@@ -48,11 +48,16 @@ const Index = () => {
   const partoDate = parseDateFromInput(partoPrevisao);
   const showWarning = concepcaoDate && demissaoDate && concepcaoDate > demissaoDate;
 
-  // Calculate stability months for live preview: meses entre demissão e parto + 5
-  const mesesEstabilidadeAuto = useMemo(() => {
+  // Calculate stability months for live preview: meses até o parto + 5 fixos
+  const mesesAtePartoAuto = useMemo(() => {
     if (!demissaoDate || !partoDate) return null;
-    return calcMesesEstabilidade(demissaoDate, partoDate);
+    return calcMesesAteParto(demissaoDate, partoDate);
   }, [demissao, partoPrevisao]);
+
+  const mesesEstabilidadeAuto = useMemo(() => {
+    if (mesesAtePartoAuto === null) return null;
+    return mesesAtePartoAuto + 5;
+  }, [mesesAtePartoAuto]);
 
   const mesesAtual = editarMesesManual && mesesManual !== ""
     ? Number(mesesManual)
@@ -251,6 +256,11 @@ const Index = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Cálculo automático: {mesesEstabilidadeAuto} meses
+                    {mesesAtePartoAuto !== null && (
+                      <span className="ml-1">
+                        ({mesesAtePartoAuto} {mesesAtePartoAuto === 1 ? "mês" : "meses"} até o parto + 5 meses fixos)
+                      </span>
+                    )}
                   </p>
 
                   <div className="flex items-center justify-between pt-1">

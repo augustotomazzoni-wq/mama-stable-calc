@@ -44,9 +44,15 @@ export function calcPrevisaoParto(concepcao: Date): Date {
   return addDays(concepcao, 266);
 }
 
+export function calcMesesAteParto(demissao: Date, parto: Date): number {
+  // Se demissão >= parto, retorna 0 para não ficar negativo
+  if (demissao >= parto) return 0;
+  return ceilMonthsBetween(demissao, parto);
+}
+
 export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
-  // meses entre demissão e parto, arredondado para cima, + 5 meses fixos
-  const mesesAteParto = ceilMonthsBetween(demissao, parto);
+  // meses até o parto (arredondado para cima) + 5 meses fixos por lei
+  const mesesAteParto = calcMesesAteParto(demissao, parto);
   return mesesAteParto + 5;
 }
 
