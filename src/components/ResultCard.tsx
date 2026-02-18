@@ -2,16 +2,17 @@ import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 interface ResultCardProps {
   input: CalcInput;
   result: CalcResult;
   onReset: () => void;
+  onBack: () => void;
 }
 
-const ResultCard = ({ input, result, onReset }: ResultCardProps) => {
+const ResultCard = ({ input, result, onReset, onBack }: ResultCardProps) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
 
@@ -40,7 +41,6 @@ Tabela 2 — Aviso + Multas:
 - 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)}
 - Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)}
 - Multa art. 477: ${formatBRL(t2.multa477)}
-- Multa 40% FGTS: ${formatBRL(t2.multa40Fgts)}
 Subtotal Tabela 2: ${formatBRL(t2.total)}`;
   }
 
@@ -88,8 +88,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
             <span className="font-medium">{formatDateBR(input.concepcao)}</span>
             <span className="text-muted-foreground">Pediu a conta?</span>
             <span className="font-medium">{input.pediuAConta ? "Sim" : "Não"}</span>
-            <span className="text-muted-foreground">Reconhecer estabilidade?</span>
-            <span className="font-medium">{input.reconhecerEstabilidade ? "Sim" : "Não"}</span>
           </div>
         </CardContent>
       </Card>
@@ -199,8 +197,8 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
                   </tr>
                   <tr className="border-t">
-                    <td className="py-2.5 px-4">Multa 40% FGTS</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa40Fgts)}</td>
+                    <td className="py-2.5 px-4 text-muted-foreground italic">Multa 40% FGTS</td>
+                    <td className="py-2.5 px-4 text-right text-muted-foreground italic">—</td>
                   </tr>
                   <tr className="border-t bg-primary/5">
                     <td className="py-3 px-4 font-bold">Subtotal Tabela 2</td>
@@ -210,18 +208,10 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
               </table>
             </div>
 
-            {result.pediuAConta && result.reconhecerEstabilidade && (
-              <div className="mt-4 rounded-lg bg-primary/10 border-2 border-primary/30 p-4 text-center">
-                <p className="text-sm font-medium text-muted-foreground">TOTAL GERAL (Tabela 1 + Tabela 2)</p>
-                <p className="text-3xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
-              </div>
-            )}
-
-            {result.pediuAConta && !result.reconhecerEstabilidade && (
-              <p className="mt-3 text-xs text-muted-foreground text-center">
-                Estabilidade não reconhecida — Tabela 2 exibida mas não somada ao total final.
-              </p>
-            )}
+            <div className="mt-4 rounded-lg bg-primary/10 border-2 border-primary/30 p-4 text-center">
+              <p className="text-sm font-medium text-muted-foreground">TOTAL GERAL (Tabela 1 + Tabela 2)</p>
+              <p className="text-3xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -243,6 +233,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           Nova simulação
         </Button>
       </div>
+
+      {/* Back button */}
+      <Button variant="ghost" onClick={onBack} className="w-full gap-2">
+        <ArrowLeft className="w-4 h-4" />
+        Voltar
+      </Button>
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock } from "lucide-react"
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import { calcPrevisaoParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
-import { parseDateFromInput, toInputDate, addMonthsExcelLike } from "@/lib/dateUtils";
+import { parseDateFromInput, toInputDate } from "@/lib/dateUtils";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 
@@ -29,7 +29,6 @@ const Index = () => {
   const [partoEditado, setPartoEditado] = useState(false);
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
-  const [reconhecerEstabilidade, setReconhecerEstabilidade] = useState(true);
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
@@ -49,11 +48,10 @@ const Index = () => {
   const partoDate = parseDateFromInput(partoPrevisao);
   const showWarning = concepcaoDate && demissaoDate && concepcaoDate > demissaoDate;
 
-  // Calculate stability months for live preview
+  // Calculate stability months for live preview: meses entre demissão e parto + 5
   const mesesEstabilidadeAuto = useMemo(() => {
     if (!demissaoDate || !partoDate) return null;
-    const fimEst = addMonthsExcelLike(partoDate, 5);
-    return calcMesesEstabilidade(demissaoDate, fimEst);
+    return calcMesesEstabilidade(demissaoDate, partoDate);
   }, [demissao, partoPrevisao]);
 
   const mesesAtual = editarMesesManual && mesesManual !== ""
@@ -79,7 +77,6 @@ const Index = () => {
         concepcao: parseDateFromInput(concepcao)!,
         partoPrevisao: parseDateFromInput(partoPrevisao)!,
         pediuAConta,
-        reconhecerEstabilidade,
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
       };
       setInputData(input);
@@ -100,7 +97,6 @@ const Index = () => {
     setPartoEditado(false);
     setEditarMesesManual(false);
     setMesesManual("");
-    setReconhecerEstabilidade(true);
     setResult(null);
     setInputData(null);
   };
@@ -288,18 +284,6 @@ const Index = () => {
                 </div>
               )}
 
-              {/* Reconhecer estabilidade */}
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <Label htmlFor="reconhecer" className="text-sm font-medium cursor-pointer">
-                  Reconhecer estabilidade?
-                </Label>
-                <Switch
-                  id="reconhecer"
-                  checked={reconhecerEstabilidade}
-                  onCheckedChange={setReconhecerEstabilidade}
-                />
-              </div>
-
               <div className="flex gap-3 mt-2">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 gap-2">
                   <ArrowLeft className="w-4 h-4" />
@@ -320,7 +304,12 @@ const Index = () => {
 
         {/* Step 3 */}
         {step === 3 && result && inputData && (
-          <ResultCard input={inputData} result={result} onReset={handleReset} />
+          <ResultCard
+            input={inputData}
+            result={result}
+            onReset={handleReset}
+            onBack={() => setStep(2)}
+          />
         )}
       </div>
     </div>
