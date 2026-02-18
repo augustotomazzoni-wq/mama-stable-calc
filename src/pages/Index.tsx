@@ -19,10 +19,10 @@ const Index = () => {
   // Step 1
   const [nome, setNome] = useState("");
   const [nascimento, setNascimento] = useState("");
+  const [salario, setSalario] = useState("");
   const [pediuAConta, setPediuAConta] = useState(false);
 
   // Step 2
-  const [salario, setSalario] = useState("");
   const [demissao, setDemissao] = useState("");
   const [concepcao, setConcepcao] = useState("");
   const [partoPrevisao, setPartoPrevisao] = useState("");
@@ -63,10 +63,13 @@ const Index = () => {
     ? Number(mesesManual)
     : mesesEstabilidadeAuto;
 
-  const isStep1Valid = nome.trim() !== "" && nascimento !== "";
-  const isStep2Valid =
+  const isStep1Valid =
+    nome.trim() !== "" &&
+    nascimento !== "" &&
     salario !== "" &&
-    Number(salario) > 0 &&
+    Number(salario) > 0;
+
+  const isStep2Valid =
     demissao !== "" &&
     concepcao !== "" &&
     partoPrevisao !== "";
@@ -149,6 +152,18 @@ const Index = () => {
                   onChange={(e) => setNascimento(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="salario">Salário da gestante na carteira (CTPS) *</Label>
+                <Input
+                  id="salario"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="3500.00"
+                  value={salario}
+                  onChange={(e) => setSalario(e.target.value)}
+                />
+              </div>
 
               {/* Toggle pediu a conta */}
               <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
@@ -188,18 +203,6 @@ const Index = () => {
               <CardTitle className="text-lg">Dados do Contrato e Gestação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="salario">Salário mensal (R$) *</Label>
-                <Input
-                  id="salario"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="3500.00"
-                  value={salario}
-                  onChange={(e) => setSalario(e.target.value)}
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="demissao">Data de demissão *</Label>
                 <Input
