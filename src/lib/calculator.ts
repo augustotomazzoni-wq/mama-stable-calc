@@ -8,7 +8,6 @@ export interface CalcInput {
   concepcao: Date;
   partoPrevisao: Date;
   pediuAConta: boolean;
-  reconhecerEstabilidade: boolean;
   mesesManual: number | null; // null = usar automático
 }
 
@@ -25,7 +24,6 @@ export interface Tabela2 {
   decimoTerceiroAviso: number;
   feriasComTercoAviso: number;
   multa477: number;
-  multa40Fgts: number;
   total: number;
 }
 
@@ -39,7 +37,6 @@ export interface CalcResult {
   tabela2: Tabela2 | null;
   totalFinal: number;
   pediuAConta: boolean;
-  reconhecerEstabilidade: boolean;
   tipoRescisao: string;
 }
 
@@ -47,8 +44,10 @@ export function calcPrevisaoParto(concepcao: Date): Date {
   return addDays(concepcao, 266);
 }
 
-export function calcMesesEstabilidade(demissao: Date, fimEstabilidade: Date): number {
-  return ceilMonthsBetween(demissao, fimEstabilidade);
+export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
+  // meses entre demissão e parto, arredondado para cima, + 5 meses fixos
+  const mesesAteParto = ceilMonthsBetween(demissao, parto);
+  return mesesAteParto + 5;
 }
 
 function calcTabela1(salario: number, meses: number): Tabela1 {
@@ -65,15 +64,14 @@ function calcTabela2(salario: number): Tabela2 {
   const decimoTerceiroAviso = avisoProvio / 12;
   const feriasComTercoAviso = (decimoTerceiroAviso / 3) + decimoTerceiroAviso;
   const multa477 = salario;
-  const multa40Fgts = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
-  const total = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477 + multa40Fgts;
-  return { avisoProvio, decimoTerceiroAviso, feriasComTercoAviso, multa477, multa40Fgts, total };
+  const total = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
+  return { avisoProvio, decimoTerceiroAviso, feriasComTercoAviso, multa477, total };
 }
 
 export function calculate(input: CalcInput): CalcResult {
   const previsaoParto = input.partoPrevisao;
   const fimEstabilidade = addMonthsExcelLike(previsaoParto, 5);
-  const mesesEstabilidadeAuto = calcMesesEstabilidade(input.demissao, fimEstabilidade);
+  const mesesEstabilidadeAuto = calcMesesEstabilidade(input.demissao, previsaoParto);
 
   const mesesManual = input.mesesManual !== null;
   const mesesEstabilidade = mesesManual ? input.mesesManual! : mesesEstabilidadeAuto;
@@ -87,10 +85,10 @@ export function calculate(input: CalcInput): CalcResult {
 
   const tipoRescisao = input.pediuAConta ? "Pedido de demissão" : "Dispensa";
 
-  let totalFinal = tabela1.total;
-  if (input.pediuAConta && input.reconhecerEstabilidade && tabela2) {
-    totalFinal = tabela1.total + tabela2.total;
-  }
+  // Se pediu a conta → sempre soma Tabela 1 + Tabela 2
+  const totalFinal = input.pediuAConta && tabela2
+    ? tabela1.total + tabela2.total
+    : tabela1.total;
 
   return {
     previsaoParto,
@@ -102,7 +100,6 @@ export function calculate(input: CalcInput): CalcResult {
     tabela2,
     totalFinal,
     pediuAConta: input.pediuAConta,
-    reconhecerEstabilidade: input.reconhecerEstabilidade,
     tipoRescisao,
   };
 }
