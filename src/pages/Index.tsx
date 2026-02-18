@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, ArrowLeft, ArrowRight, Baby } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
-import { calcPrevisaoParto, calculate, CalcInput, CalcResult } from "@/lib/calculator";
-import { parseDateFromInput, toInputDate } from "@/lib/dateUtils";
+import { calcPrevisaoParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
+import { parseDateFromInput, toInputDate, addMonthsExcelLike } from "@/lib/dateUtils";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 
@@ -18,6 +19,7 @@ const Index = () => {
   // Step 1
   const [nome, setNome] = useState("");
   const [nascimento, setNascimento] = useState("");
+  const [pediuAConta, setPediuAConta] = useState(false);
 
   // Step 2
   const [salario, setSalario] = useState("");
@@ -25,11 +27,14 @@ const Index = () => {
   const [concepcao, setConcepcao] = useState("");
   const [partoPrevisao, setPartoPrevisao] = useState("");
   const [partoEditado, setPartoEditado] = useState(false);
+  const [editarMesesManual, setEditarMesesManual] = useState(false);
+  const [mesesManual, setMesesManual] = useState("");
+  const [reconhecerEstabilidade, setReconhecerEstabilidade] = useState(true);
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
 
-  // Auto-calculate parto previsão from concepcao
+  // Auto-calculate parto previsão
   useEffect(() => {
     if (concepcao && !partoEditado) {
       const cDate = parseDateFromInput(concepcao);
@@ -41,7 +46,19 @@ const Index = () => {
 
   const concepcaoDate = parseDateFromInput(concepcao);
   const demissaoDate = parseDateFromInput(demissao);
+  const partoDate = parseDateFromInput(partoPrevisao);
   const showWarning = concepcaoDate && demissaoDate && concepcaoDate > demissaoDate;
+
+  // Calculate stability months for live preview
+  const mesesEstabilidadeAuto = useMemo(() => {
+    if (!demissaoDate || !partoDate) return null;
+    const fimEst = addMonthsExcelLike(partoDate, 5);
+    return calcMesesEstabilidade(demissaoDate, fimEst);
+  }, [demissao, partoPrevisao]);
+
+  const mesesAtual = editarMesesManual && mesesManual !== ""
+    ? Number(mesesManual)
+    : mesesEstabilidadeAuto;
 
   const isStep1Valid = nome.trim() !== "" && nascimento !== "";
   const isStep2Valid =
@@ -61,6 +78,9 @@ const Index = () => {
         demissao: parseDateFromInput(demissao)!,
         concepcao: parseDateFromInput(concepcao)!,
         partoPrevisao: parseDateFromInput(partoPrevisao)!,
+        pediuAConta,
+        reconhecerEstabilidade,
+        mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
       };
       setInputData(input);
       setResult(calculate(input));
@@ -72,11 +92,15 @@ const Index = () => {
     setStep(1);
     setNome("");
     setNascimento("");
+    setPediuAConta(false);
     setSalario("");
     setDemissao("");
     setConcepcao("");
     setPartoPrevisao("");
     setPartoEditado(false);
+    setEditarMesesManual(false);
+    setMesesManual("");
+    setReconhecerEstabilidade(true);
     setResult(null);
     setInputData(null);
   };
@@ -90,7 +114,7 @@ const Index = () => {
             <Baby className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">
-            Calculadora de Estabilidade Gestante
+            Cálculos Gestante
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Cálculo de indenização do período de estabilidade
@@ -124,6 +148,26 @@ const Index = () => {
                   onChange={(e) => setNascimento(e.target.value)}
                 />
               </div>
+
+              {/* Toggle pediu a conta */}
+              <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="pediuAConta" className="text-base font-semibold cursor-pointer">
+                    Ela pediu a conta?
+                  </Label>
+                  <Switch
+                    id="pediuAConta"
+                    checked={pediuAConta}
+                    onCheckedChange={setPediuAConta}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {pediuAConta
+                    ? "Tipo de rescisão: Pedido de demissão — Tabela 2 será habilitada"
+                    : "Tipo de rescisão: Dispensa — apenas Tabela 1 será calculada"}
+                </p>
+              </div>
+
               <Button
                 onClick={handleNext}
                 disabled={!isStep1Valid}
@@ -197,6 +241,63 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">
                   Calculado automaticamente (266 dias após concepção). Edite se houver ultrassom/certidão.
                 </p>
+              </div>
+
+              {/* Stability months display */}
+              {mesesEstabilidadeAuto !== null && (
+                <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-base font-semibold">
+                      Tempo de estabilidade: {mesesAtual ?? 0} meses
+                    </span>
+                    {editarMesesManual && <span className="text-xs text-muted-foreground">(manual)</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Cálculo automático: {mesesEstabilidadeAuto} meses
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <Label htmlFor="editarMeses" className="text-sm cursor-pointer">
+                      Editar tempo manualmente
+                    </Label>
+                    <Switch
+                      id="editarMeses"
+                      checked={editarMesesManual}
+                      onCheckedChange={(checked) => {
+                        setEditarMesesManual(checked);
+                        if (!checked) setMesesManual("");
+                      }}
+                    />
+                  </div>
+
+                  {editarMesesManual && (
+                    <div className="space-y-1">
+                      <Label htmlFor="mesesManual" className="text-sm">Meses de estabilidade</Label>
+                      <Input
+                        id="mesesManual"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder={String(mesesEstabilidadeAuto)}
+                        value={mesesManual}
+                        onChange={(e) => setMesesManual(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Reconhecer estabilidade */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <Label htmlFor="reconhecer" className="text-sm font-medium cursor-pointer">
+                  Reconhecer estabilidade?
+                </Label>
+                <Switch
+                  id="reconhecer"
+                  checked={reconhecerEstabilidade}
+                  onCheckedChange={setReconhecerEstabilidade}
+                />
               </div>
 
               <div className="flex gap-3 mt-2">
