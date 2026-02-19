@@ -9,6 +9,7 @@ export interface CalcInput {
   partoPrevisao: Date;
   pediuAConta: boolean;
   mesesManual: number | null; // null = usar automático
+  empregadaDomestica: boolean;
 }
 
 export interface Tabela1 {
@@ -56,11 +57,12 @@ export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
   return mesesAteParto + 5;
 }
 
-function calcTabela1(salario: number, meses: number): Tabela1 {
+function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean): Tabela1 {
   const salarios = meses * salario;
   const decimoTerceiro = (salario / 12) * meses;
   const feriasComTerco = (salario / 3) + decimoTerceiro;
-  const fgts = meses * 0.08 * salario;
+  const aliquotaFgts = empregadaDomestica ? 0.112 : 0.08;
+  const fgts = (salarios + decimoTerceiro + feriasComTerco) * aliquotaFgts;
   const total = salarios + decimoTerceiro + feriasComTerco + fgts;
   return { salarios, decimoTerceiro, feriasComTerco, fgts, total };
 }
@@ -82,7 +84,7 @@ export function calculate(input: CalcInput): CalcResult {
   const mesesManual = input.mesesManual !== null;
   const mesesEstabilidade = mesesManual ? input.mesesManual! : mesesEstabilidadeAuto;
 
-  const tabela1 = calcTabela1(input.salario, mesesEstabilidade);
+  const tabela1 = calcTabela1(input.salario, mesesEstabilidade, input.empregadaDomestica);
 
   let tabela2: Tabela2 | null = null;
   if (input.pediuAConta) {
