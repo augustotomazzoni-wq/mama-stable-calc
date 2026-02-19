@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
@@ -21,6 +21,7 @@ const Index = () => {
   const [nascimento, setNascimento] = useState("");
   const [salario, setSalario] = useState("");
   const [pediuAConta, setPediuAConta] = useState(false);
+  const [empregadaDomestica, setEmpregadaDomestica] = useState(false);
 
   // Step 2
   const [demissao, setDemissao] = useState("");
@@ -48,7 +49,7 @@ const Index = () => {
   const partoDate = parseDateFromInput(partoPrevisao);
   const showWarning = concepcaoDate && demissaoDate && concepcaoDate > demissaoDate;
 
-  // Calculate stability months for live preview: meses até o parto + 5 fixos
+  // Live preview stability months
   const mesesAtePartoAuto = useMemo(() => {
     if (!demissaoDate || !partoDate) return null;
     return calcMesesAteParto(demissaoDate, partoDate);
@@ -86,6 +87,7 @@ const Index = () => {
         partoPrevisao: parseDateFromInput(partoPrevisao)!,
         pediuAConta,
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
+        empregadaDomestica,
       };
       setInputData(input);
       setResult(calculate(input));
@@ -98,6 +100,7 @@ const Index = () => {
     setNome("");
     setNascimento("");
     setPediuAConta(false);
+    setEmpregadaDomestica(false);
     setSalario("");
     setDemissao("");
     setConcepcao("");
@@ -163,6 +166,28 @@ const Index = () => {
                   value={salario}
                   onChange={(e) => setSalario(e.target.value)}
                 />
+              </div>
+
+              {/* Toggle empregada doméstica */}
+              <div className="rounded-lg border-2 border-secondary/40 bg-secondary/10 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Home className="w-4 h-4 text-secondary-foreground" />
+                    <Label htmlFor="empregadaDomestica" className="text-base font-semibold cursor-pointer">
+                      Empregada doméstica?
+                    </Label>
+                  </div>
+                  <Switch
+                    id="empregadaDomestica"
+                    checked={empregadaDomestica}
+                    onCheckedChange={setEmpregadaDomestica}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {empregadaDomestica
+                    ? "FGTS calculado à alíquota de 11,2% sobre a base (Salários + 13º + Férias+1/3)"
+                    : "FGTS calculado à alíquota de 8% sobre a base (Salários + 13º + Férias+1/3)"}
+                </p>
               </div>
 
               {/* Toggle pediu a conta */}

@@ -2,7 +2,7 @@ import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, ArrowLeft } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, ArrowLeft, Home } from "lucide-react";
 import { toast } from "sonner";
 
 interface ResultCardProps {
@@ -15,6 +15,7 @@ interface ResultCardProps {
 const ResultCard = ({ input, result, onReset, onBack }: ResultCardProps) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
+  const aliquotaFgts = input.empregadaDomestica ? "11,2%" : "8%";
 
   let resumo = `Cliente: ${input.nome}
 Nascimento: ${formatDateBR(input.nascimento)}
@@ -30,7 +31,7 @@ Tabela 1 — Estabilidade:
 - Salários: ${formatBRL(t1.salarios)}
 - 13º: ${formatBRL(t1.decimoTerceiro)}
 - Férias + 1/3: ${formatBRL(t1.feriasComTerco)}
-- FGTS (8%): ${formatBRL(t1.fgts)}
+- FGTS (${aliquotaFgts}): ${formatBRL(t1.fgts)}
 Subtotal Tabela 1: ${formatBRL(t1.total)}`;
 
   if (t2) {
@@ -82,6 +83,11 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <span className="text-muted-foreground">Salário mensal</span>
             <span className="font-medium">{formatBRL(input.salario)}</span>
+            <span className="text-muted-foreground">Tipo de vínculo</span>
+            <span className="font-medium flex items-center gap-1">
+              {input.empregadaDomestica && <Home className="w-3 h-3" />}
+              {input.empregadaDomestica ? "Empregada doméstica" : "CLT geral"}
+            </span>
             <span className="text-muted-foreground">Data de demissão</span>
             <span className="font-medium">{formatDateBR(input.demissao)}</span>
             <span className="text-muted-foreground">Data de concepção</span>
@@ -148,7 +154,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                   <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.feriasComTerco)}</td>
                 </tr>
                 <tr className="border-t">
-                  <td className="py-2.5 px-4">FGTS (8%)</td>
+                  <td className="py-2.5 px-4">FGTS ({aliquotaFgts} sobre Salários + 13º + Férias)</td>
                   <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.fgts)}</td>
                 </tr>
                 <tr className="border-t bg-primary/5">
