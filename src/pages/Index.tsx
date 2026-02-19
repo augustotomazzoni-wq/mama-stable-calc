@@ -10,10 +10,12 @@ import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate } from "@/lib/dateUtils";
+import Login from "./Login";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 
 const Index = () => {
+  const [autenticado, setAutenticado] = useState(false);
   const [step, setStep] = useState(1);
 
   // Step 1
@@ -111,6 +113,10 @@ const Index = () => {
     setResult(null);
     setInputData(null);
   };
+
+  if (!autenticado) {
+    return <Login onLogin={() => setAutenticado(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
