@@ -17,7 +17,7 @@ const Login = ({ onLogin }: LoginProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (usuario === "admin" && senha === "123456") {
+    if (usuario.trim().toLowerCase() === "admin" && senha === "123456") {
       setErro(false);
       onLogin();
     } else {
@@ -54,6 +54,9 @@ const Login = ({ onLogin }: LoginProps) => {
                 <Input
                   id="usuario"
                   placeholder="Digite o usuário"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="username"
                   value={usuario}
                   onChange={(e) => { setUsuario(e.target.value); setErro(false); }}
                 />
@@ -64,6 +67,7 @@ const Login = ({ onLogin }: LoginProps) => {
                   id="senha"
                   type="password"
                   placeholder="Digite a senha"
+                  autoComplete="current-password"
                   value={senha}
                   onChange={(e) => { setSenha(e.target.value); setErro(false); }}
                 />
