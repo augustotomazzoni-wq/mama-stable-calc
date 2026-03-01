@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home, Link, Unlink } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
@@ -38,6 +38,34 @@ const Index = () => {
   const [ultimoEditado, setUltimoEditado] = useState<"concepcao" | "parto" | null>(null);
   const [autoConcepcao, setAutoConcepcao] = useState(true);
   const [autoParto, setAutoParto] = useState(true);
+
+  // Helper: exam-based conception calculator
+  const [showExameHelper, setShowExameHelper] = useState(false);
+  const [exameData, setExameData] = useState("");
+  const [exameSemanas, setExameSemanas] = useState("");
+  const [exameDias, setExameDias] = useState("");
+
+  const exameConcepcaoDate = useMemo(() => {
+    if (!exameData || exameSemanas === "") return null;
+    const eDate = parseDateFromInput(exameData);
+    if (!eDate) return null;
+    const totalDias = Number(exameSemanas) * 7 + (Number(exameDias) || 0);
+    if (totalDias <= 0) return null;
+    return addDays(eDate, -totalDias);
+  }, [exameData, exameSemanas, exameDias]);
+
+  const examePartoDate = useMemo(() => {
+    if (!exameConcepcaoDate) return null;
+    return calcPrevisaoParto(exameConcepcaoDate);
+  }, [exameConcepcaoDate]);
+
+  const aplicarExame = () => {
+    if (exameConcepcaoDate && examePartoDate) {
+      setConcepcao(toInputDate(exameConcepcaoDate));
+      setPartoPrevisao(toInputDate(examePartoDate));
+      setUltimoEditado(null);
+    }
+  };
 
   // Auto-calculate parto from concepcao
   useEffect(() => {
@@ -126,6 +154,10 @@ const Index = () => {
     setUltimoEditado(null);
     setAutoConcepcao(true);
     setAutoParto(true);
+    setShowExameHelper(false);
+    setExameData("");
+    setExameSemanas("");
+    setExameDias("");
   };
 
   if (!autenticado) {
@@ -257,6 +289,51 @@ const Index = () => {
                   onChange={(e) => setDemissao(e.target.value)}
                 />
               </div>
+              {/* Exam-based helper */}
+              <div className="rounded-lg border-2 border-muted bg-muted/30 p-4 space-y-3">
+                <button
+                  type="button"
+                  className="flex items-center justify-between w-full text-left"
+                  onClick={() => setShowExameHelper(!showExameHelper)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold">Calcular a partir do exame</span>
+                  </div>
+                  {showExameHelper ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                </button>
+                {showExameHelper && (
+                  <div className="space-y-3 pt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Informe a data do exame e a idade gestacional para calcular concepção e parto.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="exameData" className="text-sm">Data do exame</Label>
+                      <Input id="exameData" type="date" value={exameData} onChange={(e) => setExameData(e.target.value)} />
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor="exameSemanas" className="text-sm">Semanas</Label>
+                        <Input id="exameSemanas" type="number" min="0" max="42" placeholder="0" value={exameSemanas} onChange={(e) => setExameSemanas(e.target.value)} />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor="exameDias" className="text-sm">Dias</Label>
+                        <Input id="exameDias" type="number" min="0" max="6" placeholder="0" value={exameDias} onChange={(e) => setExameDias(e.target.value)} />
+                      </div>
+                    </div>
+                    {exameConcepcaoDate && examePartoDate && (
+                      <div className="rounded-md bg-accent/40 p-3 space-y-1 text-sm">
+                        <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')}</p>
+                        <p><span className="font-medium">Previsão do parto:</span> {examePartoDate.toLocaleDateString('pt-BR')}</p>
+                        <Button type="button" size="sm" className="w-full mt-2 gap-1.5" onClick={aplicarExame}>
+                          Usar estas datas
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="concepcao">Data da concepção *</Label>
                 <Input
