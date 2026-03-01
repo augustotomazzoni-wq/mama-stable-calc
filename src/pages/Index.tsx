@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home } from "lucide-
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
-import { parseDateFromInput, toInputDate } from "@/lib/dateUtils";
+import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
 import Login from "./Login";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
@@ -29,22 +29,34 @@ const Index = () => {
   const [demissao, setDemissao] = useState("");
   const [concepcao, setConcepcao] = useState("");
   const [partoPrevisao, setPartoPrevisao] = useState("");
-  const [partoEditado, setPartoEditado] = useState(false);
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
 
-  // Auto-calculate parto previsão
+  const [ultimoEditado, setUltimoEditado] = useState<"concepcao" | "parto" | null>(null);
+
+  // Auto-calculate parto from concepcao
   useEffect(() => {
-    if (concepcao && !partoEditado) {
+    if (ultimoEditado === "concepcao" && concepcao) {
       const cDate = parseDateFromInput(concepcao);
       if (cDate) {
         setPartoPrevisao(toInputDate(calcPrevisaoParto(cDate)));
       }
     }
-  }, [concepcao, partoEditado]);
+  }, [concepcao, ultimoEditado]);
+
+  // Auto-calculate concepcao from parto (inverse: parto - 266 days)
+  useEffect(() => {
+    if (ultimoEditado === "parto" && partoPrevisao) {
+      const pDate = parseDateFromInput(partoPrevisao);
+      if (pDate) {
+        const concDate = addDays(pDate, -266);
+        setConcepcao(toInputDate(concDate));
+      }
+    }
+  }, [partoPrevisao, ultimoEditado]);
 
   const concepcaoDate = parseDateFromInput(concepcao);
   const demissaoDate = parseDateFromInput(demissao);
@@ -107,11 +119,9 @@ const Index = () => {
     setDemissao("");
     setConcepcao("");
     setPartoPrevisao("");
-    setPartoEditado(false);
     setEditarMesesManual(false);
     setMesesManual("");
-    setResult(null);
-    setInputData(null);
+    setUltimoEditado(null);
   };
 
   if (!autenticado) {
@@ -249,7 +259,7 @@ const Index = () => {
                   id="concepcao"
                   type="date"
                   value={concepcao}
-                  onChange={(e) => setConcepcao(e.target.value)}
+                  onChange={(e) => { setConcepcao(e.target.value); setUltimoEditado("concepcao"); }}
                 />
               </div>
 
@@ -268,13 +278,10 @@ const Index = () => {
                   id="parto"
                   type="date"
                   value={partoPrevisao}
-                  onChange={(e) => {
-                    setPartoPrevisao(e.target.value);
-                    setPartoEditado(true);
-                  }}
+                  onChange={(e) => { setPartoPrevisao(e.target.value); setUltimoEditado("parto"); }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Calculado automaticamente (266 dias após concepção). Edite se houver ultrassom/certidão.
+                  Cálculo bidirecional: preencha concepção ou parto e o outro será calculado automaticamente (266 dias).
                 </p>
               </div>
 
