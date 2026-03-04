@@ -232,23 +232,33 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </Card>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      {/* Print footer - only visible when printing */}
+      <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
+        <p className="text-sm font-semibold text-foreground">Tabela elaborada por Dr. Augusto Tomazzoni Lubenow</p>
+        <p className="text-sm text-muted-foreground">OAB 133519</p>
+      </div>
+
+      {/* Actions - hidden when printing */}
+      <div className="flex gap-3 pt-2 print:hidden">
         <Button onClick={handleCopy} className="flex-1 gap-2">
           <Copy className="w-4 h-4" />
           Copiar resumo
         </Button>
+        <Button onClick={handlePrint} variant="outline" className="flex-1 gap-2">
+          <Printer className="w-4 h-4" />
+          Imprimir
+        </Button>
+      </div>
+      <div className="flex gap-3 print:hidden">
         <Button onClick={onReset} variant="outline" className="flex-1 gap-2">
           <RotateCcw className="w-4 h-4" />
           Nova simulação
         </Button>
+        <Button variant="ghost" onClick={onBack} className="flex-1 gap-2">
+          <ArrowLeft className="w-4 h-4" />
+          Voltar
+        </Button>
       </div>
-
-      {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="w-full gap-2">
-        <ArrowLeft className="w-4 h-4" />
-        Voltar
-      </Button>
     </div>
   );
 };
