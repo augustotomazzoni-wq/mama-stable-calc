@@ -55,6 +55,10 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Hero result */}
