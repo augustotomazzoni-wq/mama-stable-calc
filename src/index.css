@@ -136,3 +136,40 @@
     font-family: var(--font-display);
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Remove shadows and borders for cleaner print */
+  .shadow-sm, .shadow {
+    box-shadow: none !important;
+  }
+
+  /* Ensure cards print well */
+  [class*="rounded-lg"] {
+    border: 1px solid #ddd !important;
+  }
+
+  /* Full width on print */
+  .max-w-md, .max-w-lg, .max-w-xl {
+    max-width: 100% !important;
+  }
+
+  /* Avoid page breaks inside cards */
+  .space-y-6 > * {
+    break-inside: avoid;
+  }
+}
