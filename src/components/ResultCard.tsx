@@ -240,7 +240,22 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
       </div>
 
       {/* Actions - hidden when printing */}
-      <div className="flex gap-3 pt-2 print:hidden">
+      {/* Excel export */}
+      <div className="pt-2 print:hidden">
+        <Button
+          onClick={() => {
+            exportCalculoGestante(input, result);
+            toast.success("Planilha Excel gerada com sucesso!");
+          }}
+          variant="secondary"
+          className="w-full gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Gerar planilha completa do cálculo (.xlsx)
+        </Button>
+      </div>
+
+      <div className="flex gap-3 print:hidden">
         <Button onClick={handleCopy} className="flex-1 gap-2">
           <Copy className="w-4 h-4" />
           Copiar resumo
