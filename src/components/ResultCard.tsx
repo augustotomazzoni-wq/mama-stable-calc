@@ -1,8 +1,9 @@
 import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
+import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, ArrowLeft, Home, Printer } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, ArrowLeft, Home, Printer, Download } from "lucide-react";
 import { toast } from "sonner";
 
 interface ResultCardProps {
