@@ -246,8 +246,8 @@ const Index = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {pediuAConta
-                    ? "Tipo de rescisão: Pedido de demissão — Tabela 2 será habilitada"
-                    : "Tipo de rescisão: Dispensa — apenas Tabela 1 será calculada"}
+                   ? "Tipo de rescisão: Pedido de demissão — verbas rescisórias completas serão calculadas"
+                    : "Tipo de rescisão: Dispensa — apenas indenização e FGTS serão calculados"}
                 </p>
               </div>
 
