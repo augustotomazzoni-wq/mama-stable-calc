@@ -30,23 +30,25 @@ Estabilidade até: ${formatDateBR(result.fimEstabilidade)}
 Período de estabilidade: ${result.mesesEstabilidade} meses (${result.mesesManual ? "Manual" : "Automático"})
 Tipo de rescisão: ${result.tipoRescisao}
 
-Tabela 1 — Estabilidade:
+Cálculo de Indenização:
 - Salários: ${formatBRL(t1.salarios)}
 - 13º: ${formatBRL(t1.decimoTerceiro)}
 - Férias + 1/3: ${formatBRL(t1.feriasComTerco)}
-- FGTS (${aliquotaFgts}): ${formatBRL(t1.fgts)}
-Subtotal Tabela 1: ${formatBRL(t1.total)}`;
+Subtotal Indenização: ${formatBRL(t1.total)}
 
-  if (t2) {
+Cálculo das verbas rescisórias:
+- FGTS (${aliquotaFgts}): ${formatBRL(t2.fgts)}`;
+
+  if (input.pediuAConta) {
     resumo += `
-
-Tabela 2 — Aviso + Multas:
 - Aviso prévio: ${formatBRL(t2.avisoProvio)}
 - 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)}
 - Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)}
-- Multa art. 477: ${formatBRL(t2.multa477)}
-Subtotal Tabela 2: ${formatBRL(t2.total)}`;
+- Multa art. 477: ${formatBRL(t2.multa477)}`;
   }
+
+  resumo += `
+Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
 
   if (mf) {
     resumo += `
@@ -151,12 +153,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardContent>
       </Card>
 
-      {/* Tabela 1 */}
+      {/* Cálculo de Indenização */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-primary" />
-            Tabela 1 — Estabilidade
+            Cálculo de Indenização
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -181,12 +183,8 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                   <td className="py-2.5 px-4">Férias + 1/3</td>
                   <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.feriasComTerco)}</td>
                 </tr>
-                <tr className="border-t">
-                  <td className="py-2.5 px-4">FGTS ({aliquotaFgts} sobre Salários + 13º + Férias)</td>
-                  <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.fgts)}</td>
-                </tr>
                 <tr className="border-t bg-primary/5">
-                  <td className="py-3 px-4 font-bold">Subtotal Tabela 1</td>
+                  <td className="py-3 px-4 font-bold">Subtotal Indenização</td>
                   <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(t1.total)}</td>
                 </tr>
               </tbody>
@@ -195,57 +193,57 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardContent>
       </Card>
 
-      {/* Tabela 2 */}
-      {t2 ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Scale className="w-4 h-4 text-primary" />
-              Tabela 2 — Aviso + Multas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg overflow-hidden border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="text-left py-2.5 px-4 font-semibold">Verba</th>
-                    <th className="text-right py-2.5 px-4 font-semibold">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">Aviso prévio</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">13º sobre aviso</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.decimoTerceiroAviso)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">Férias + 1/3 sobre aviso</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.feriasComTercoAviso)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">Multa art. 477</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
-                  </tr>
-                  <tr className="border-t bg-primary/5">
-                    <td className="py-3 px-4 font-bold">Subtotal Tabela 2</td>
-                    <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(t2.total)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-dashed">
-          <CardContent className="py-4 text-center text-sm text-muted-foreground">
-            Tabela 2 desativada — marque "Ela pediu a conta?" para habilitar.
-          </CardContent>
-        </Card>
-      )}
+      {/* Cálculo das verbas rescisórias */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Scale className="w-4 h-4 text-primary" />
+            Cálculo das verbas rescisórias
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg overflow-hidden border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted">
+                  <th className="text-left py-2.5 px-4 font-semibold">Verba</th>
+                  <th className="text-right py-2.5 px-4 font-semibold">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="py-2.5 px-4">FGTS ({aliquotaFgts} sobre Salários + 13º + Férias)</td>
+                  <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.fgts)}</td>
+                </tr>
+                {input.pediuAConta && (
+                  <>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">Aviso prévio</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">13º sobre aviso</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.decimoTerceiroAviso)}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">Férias + 1/3 sobre aviso</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.feriasComTercoAviso)}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">Multa art. 477</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
+                    </tr>
+                  </>
+                )}
+                <tr className="border-t bg-primary/5">
+                  <td className="py-3 px-4 font-bold">Subtotal Verbas Rescisórias</td>
+                  <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(t2.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Multa FGTS 40% */}
       {mf && (
@@ -278,7 +276,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     </tr>
                   )}
                   <tr className="border-t">
-                    <td className="py-2.5 px-4">FGTS do acerto (Tabela 1)</td>
+                    <td className="py-2.5 px-4">FGTS do acerto</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsAcerto)}</td>
                   </tr>
                   <tr className="border-t bg-primary/5">
@@ -292,15 +290,13 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </Card>
       )}
 
-      {/* Total geral when there are multiple tables */}
-      {(t2 || mf) && (
-        <Card className="border-2 border-primary/30 bg-primary/10">
-          <CardContent className="py-4 text-center">
-            <p className="text-sm font-medium text-muted-foreground">TOTAL GERAL</p>
-            <p className="text-3xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Total geral */}
+      <Card className="border-2 border-primary/30 bg-primary/10">
+        <CardContent className="py-4 text-center">
+          <p className="text-sm font-medium text-muted-foreground">TOTAL GERAL</p>
+          <p className="text-3xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
+        </CardContent>
+      </Card>
 
       {/* Print footer */}
       <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
@@ -315,7 +311,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           className="w-full gap-2"
         >
           <BookOpen className="w-4 h-4" />
-          Gerar memória de cálculo detalhada
+          Gerar memorial de cálculo detalhado
         </Button>
       </div>
 

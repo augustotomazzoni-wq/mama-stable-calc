@@ -18,11 +18,11 @@ export interface Tabela1 {
   salarios: number;
   decimoTerceiro: number;
   feriasComTerco: number;
-  fgts: number;
   total: number;
 }
 
 export interface Tabela2 {
+  fgts: number;
   avisoProvio: number;
   decimoTerceiroAviso: number;
   feriasComTercoAviso: number;
@@ -46,7 +46,7 @@ export interface CalcResult {
   mesesEstabilidade: number;
   mesesManual: boolean;
   tabela1: Tabela1;
-  tabela2: Tabela2 | null;
+  tabela2: Tabela2;
   multaFgts: MultaFgtsResult | null;
   totalFinal: number;
   pediuAConta: boolean;
@@ -67,23 +67,32 @@ export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
   return mesesAteParto + 5;
 }
 
-function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean): Tabela1 {
+function calcTabela1(salario: number, meses: number): Tabela1 {
   const salarios = meses * salario;
   const decimoTerceiro = (salario / 12) * meses;
   const feriasComTerco = (salario / 3) + decimoTerceiro;
-  const aliquotaFgts = empregadaDomestica ? 0.112 : 0.08;
-  const fgts = (salarios + decimoTerceiro + feriasComTerco) * aliquotaFgts;
-  const total = salarios + decimoTerceiro + feriasComTerco + fgts;
-  return { salarios, decimoTerceiro, feriasComTerco, fgts, total };
+  const total = salarios + decimoTerceiro + feriasComTerco;
+  return { salarios, decimoTerceiro, feriasComTerco, total };
 }
 
-function calcTabela2(salario: number): Tabela2 {
-  const avisoProvio = salario;
-  const decimoTerceiroAviso = avisoProvio / 12;
-  const feriasComTercoAviso = (decimoTerceiroAviso / 3) + decimoTerceiroAviso;
-  const multa477 = salario;
-  const total = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
-  return { avisoProvio, decimoTerceiroAviso, feriasComTercoAviso, multa477, total };
+function calcTabela2(salario: number, tabela1: Tabela1, empregadaDomestica: boolean, pediuAConta: boolean): Tabela2 {
+  const aliquotaFgts = empregadaDomestica ? 0.112 : 0.08;
+  const fgts = (tabela1.salarios + tabela1.decimoTerceiro + tabela1.feriasComTerco) * aliquotaFgts;
+
+  let avisoProvio = 0;
+  let decimoTerceiroAviso = 0;
+  let feriasComTercoAviso = 0;
+  let multa477 = 0;
+
+  if (pediuAConta) {
+    avisoProvio = salario;
+    decimoTerceiroAviso = avisoProvio / 12;
+    feriasComTercoAviso = (decimoTerceiroAviso / 3) + decimoTerceiroAviso;
+    multa477 = salario;
+  }
+
+  const total = fgts + avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
+  return { fgts, avisoProvio, decimoTerceiroAviso, feriasComTercoAviso, multa477, total };
 }
 
 function calcMultaFgts(input: CalcInput, fgtsAcerto: number): MultaFgtsResult {
@@ -119,24 +128,17 @@ export function calculate(input: CalcInput): CalcResult {
   const mesesManual = input.mesesManual !== null;
   const mesesEstabilidade = mesesManual ? input.mesesManual! : mesesEstabilidadeAuto;
 
-  const tabela1 = calcTabela1(input.salario, mesesEstabilidade, input.empregadaDomestica);
-
-  let tabela2: Tabela2 | null = null;
-  if (input.pediuAConta) {
-    tabela2 = calcTabela2(input.salario);
-  }
+  const tabela1 = calcTabela1(input.salario, mesesEstabilidade);
+  const tabela2 = calcTabela2(input.salario, tabela1, input.empregadaDomestica, input.pediuAConta);
 
   let multaFgts: MultaFgtsResult | null = null;
   if (input.calcularMultaFgts) {
-    multaFgts = calcMultaFgts(input, tabela1.fgts);
+    multaFgts = calcMultaFgts(input, tabela2.fgts);
   }
 
   const tipoRescisao = input.pediuAConta ? "Pedido de demissão" : "Dispensa";
 
-  let totalFinal = tabela1.total;
-  if (input.pediuAConta && tabela2) {
-    totalFinal += tabela2.total;
-  }
+  let totalFinal = tabela1.total + tabela2.total;
   if (multaFgts) {
     totalFinal += multaFgts.multa40;
   }

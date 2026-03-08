@@ -2,7 +2,7 @@ import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, FileText, Calendar, DollarSign, Scale, Shield } from "lucide-react";
+import { X, FileText, Calendar, DollarSign, Scale, Shield, Printer } from "lucide-react";
 
 interface Props {
   input: CalcInput;
@@ -46,13 +46,17 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
   const fmt = (v: number) => formatBRL(v);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <Card className="border-2 border-primary/30 bg-accent/30">
         <CardContent className="pt-6 text-center space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Documento de Conferência</p>
-          <h2 className="text-xl font-display font-bold text-foreground">Memória de Cálculo Detalhada</h2>
+          <h2 className="text-xl font-display font-bold text-foreground">Memorial de Cálculo Detalhado</h2>
         </CardContent>
       </Card>
 
@@ -104,12 +108,12 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         </CardContent>
       </Card>
 
-      {/* Tabela 1 - Verbas */}
+      {/* Cálculo de Indenização */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-primary" />
-            Tabela 1 — Verbas do Período Estabilitário
+            Cálculo de Indenização
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -131,63 +135,66 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             explanation="Férias proporcionais acrescidas de 1/3 constitucional"
             formula={`(${fmt(sal)} / 3) + ${fmt(t1.decimoTerceiro)} = ${fmt(t1.feriasComTerco)}`}
           />
-          <VerbaBlock
-            title={`FGTS (${aliquotaLabel})`}
-            value={t1.fgts}
-            explanation="FGTS calculado sobre a base considerada na Tabela 1"
-            formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel} = ${fmt(t1.fgts)}`}
-            observation={input.empregadaDomestica ? "Alíquota de 11,2% aplicada (empregada doméstica)" : undefined}
-          />
 
           <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
-            <span className="font-bold text-sm">Subtotal Tabela 1</span>
+            <span className="font-bold text-sm">Subtotal Indenização</span>
             <span className="text-xl font-bold text-primary font-display">{fmt(t1.total)}</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabela 2 */}
-      {t2 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Scale className="w-4 h-4 text-primary" />
-              Tabela 2 — Aviso + Multas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <VerbaBlock
-              title="Aviso prévio"
-              value={t2.avisoProvio}
-              explanation="Valor equivalente a um salário mensal"
-              formula={`${fmt(sal)}`}
-            />
-            <VerbaBlock
-              title="13º sobre aviso"
-              value={t2.decimoTerceiroAviso}
-              explanation="Um doze avos do aviso prévio"
-              formula={`${fmt(t2.avisoProvio)} / 12 = ${fmt(t2.decimoTerceiroAviso)}`}
-            />
-            <VerbaBlock
-              title="Férias + 1/3 sobre aviso"
-              value={t2.feriasComTercoAviso}
-              explanation="Férias proporcionais acrescidas de 1/3 sobre o aviso prévio"
-              formula={`(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
-            />
-            <VerbaBlock
-              title="Multa art. 477"
-              value={t2.multa477}
-              explanation="Multa por atraso no pagamento das verbas rescisórias"
-              formula={`${fmt(sal)}`}
-            />
+      {/* Cálculo das verbas rescisórias */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Scale className="w-4 h-4 text-primary" />
+            Cálculo das verbas rescisórias
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <VerbaBlock
+            title={`FGTS (${aliquotaLabel})`}
+            value={t2.fgts}
+            explanation="FGTS calculado sobre a base de Salários + 13º + Férias"
+            formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel} = ${fmt(t2.fgts)}`}
+            observation={input.empregadaDomestica ? "Alíquota de 11,2% aplicada (empregada doméstica)" : undefined}
+          />
 
-            <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
-              <span className="font-bold text-sm">Subtotal Tabela 2</span>
-              <span className="text-xl font-bold text-primary font-display">{fmt(t2.total)}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          {input.pediuAConta && (
+            <>
+              <VerbaBlock
+                title="Aviso prévio"
+                value={t2.avisoProvio}
+                explanation="Valor equivalente a um salário mensal"
+                formula={`${fmt(sal)}`}
+              />
+              <VerbaBlock
+                title="13º sobre aviso"
+                value={t2.decimoTerceiroAviso}
+                explanation="Um doze avos do aviso prévio"
+                formula={`${fmt(t2.avisoProvio)} / 12 = ${fmt(t2.decimoTerceiroAviso)}`}
+              />
+              <VerbaBlock
+                title="Férias + 1/3 sobre aviso"
+                value={t2.feriasComTercoAviso}
+                explanation="Férias proporcionais acrescidas de 1/3 sobre o aviso prévio"
+                formula={`(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
+              />
+              <VerbaBlock
+                title="Multa art. 477"
+                value={t2.multa477}
+                explanation="Multa por atraso no pagamento das verbas rescisórias"
+                formula={`${fmt(sal)}`}
+              />
+            </>
+          )}
+
+          <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
+            <span className="font-bold text-sm">Subtotal Verbas Rescisórias</span>
+            <span className="text-xl font-bold text-primary font-display">{fmt(t2.total)}</span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Multa FGTS 40% */}
       {mf && (
@@ -216,9 +223,9 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             )}
 
             <VerbaBlock
-              title="FGTS devido sobre o acerto (Tabela 1)"
+              title="FGTS devido sobre o acerto"
               value={mf.fgtsAcerto}
-              explanation="Corresponde ao FGTS calculado sobre as verbas da Tabela 1"
+              explanation="Corresponde ao FGTS calculado sobre as verbas rescisórias"
               formula={`Valor calculado pelo motor interno do sistema: ${fmt(mf.fgtsAcerto)}`}
             />
 
@@ -242,7 +249,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Geral da Indenização</p>
           <p className="text-4xl font-bold text-primary font-display">{fmt(result.totalFinal)}</p>
           <p className="text-xs text-muted-foreground">
-            Tabela 1{t2 ? " + Tabela 2" : ""}{mf ? " + Multa 40% FGTS" : ""} — Soma final das verbas apuradas
+            Indenização + Verbas Rescisórias{mf ? " + Multa 40% FGTS" : ""} — Soma final das verbas apuradas
           </p>
         </CardContent>
       </Card>
@@ -256,11 +263,15 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         <p className="text-xs text-muted-foreground">OAB 133519</p>
       </div>
 
-      {/* Close button */}
-      <div className="print:hidden">
+      {/* Action buttons */}
+      <div className="print:hidden space-y-3">
+        <Button onClick={handlePrint} className="w-full gap-2">
+          <Printer className="w-4 h-4" />
+          Imprimir memorial
+        </Button>
         <Button onClick={onClose} variant="outline" className="w-full gap-2">
           <X className="w-4 h-4" />
-          Fechar memória de cálculo
+          Fechar memorial de cálculo
         </Button>
       </div>
     </div>
