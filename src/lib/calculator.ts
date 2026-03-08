@@ -8,8 +8,10 @@ export interface CalcInput {
   concepcao: Date;
   partoPrevisao: Date;
   pediuAConta: boolean;
-  mesesManual: number | null; // null = usar automático
+  mesesManual: number | null;
   empregadaDomestica: boolean;
+  admissao: Date | null;
+  calcularMultaFgts: boolean;
 }
 
 export interface Tabela1 {
@@ -28,6 +30,15 @@ export interface Tabela2 {
   total: number;
 }
 
+export interface MultaFgtsResult {
+  fgtsAcumuladoContrato: number;
+  mesesContrato: number;
+  fgtsAcerto: number;
+  baseFgtsTotal: number;
+  multa40: number;
+  temAdmissao: boolean;
+}
+
 export interface CalcResult {
   previsaoParto: Date;
   fimEstabilidade: Date;
@@ -36,6 +47,7 @@ export interface CalcResult {
   mesesManual: boolean;
   tabela1: Tabela1;
   tabela2: Tabela2 | null;
+  multaFgts: MultaFgtsResult | null;
   totalFinal: number;
   pediuAConta: boolean;
   tipoRescisao: string;
@@ -46,13 +58,11 @@ export function calcPrevisaoParto(concepcao: Date): Date {
 }
 
 export function calcMesesAteParto(demissao: Date, parto: Date): number {
-  // Se demissão >= parto, retorna 0 para não ficar negativo
   if (demissao >= parto) return 0;
   return ceilMonthsBetween(demissao, parto);
 }
 
 export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
-  // meses até o parto (arredondado para cima) + 5 meses fixos por lei
   const mesesAteParto = calcMesesAteParto(demissao, parto);
   return mesesAteParto + 5;
 }
@@ -76,6 +86,31 @@ function calcTabela2(salario: number): Tabela2 {
   return { avisoProvio, decimoTerceiroAviso, feriasComTercoAviso, multa477, total };
 }
 
+function calcMultaFgts(input: CalcInput, fgtsAcerto: number): MultaFgtsResult {
+  const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
+  const temAdmissao = input.admissao !== null;
+
+  let fgtsAcumuladoContrato = 0;
+  let mesesContrato = 0;
+
+  if (temAdmissao && input.admissao) {
+    mesesContrato = ceilMonthsBetween(input.admissao, input.demissao);
+    fgtsAcumuladoContrato = input.salario * aliquota * mesesContrato;
+  }
+
+  const baseFgtsTotal = fgtsAcumuladoContrato + fgtsAcerto;
+  const multa40 = baseFgtsTotal * 0.4;
+
+  return {
+    fgtsAcumuladoContrato,
+    mesesContrato,
+    fgtsAcerto,
+    baseFgtsTotal,
+    multa40,
+    temAdmissao,
+  };
+}
+
 export function calculate(input: CalcInput): CalcResult {
   const previsaoParto = input.partoPrevisao;
   const fimEstabilidade = addMonthsExcelLike(previsaoParto, 5);
@@ -91,12 +126,20 @@ export function calculate(input: CalcInput): CalcResult {
     tabela2 = calcTabela2(input.salario);
   }
 
+  let multaFgts: MultaFgtsResult | null = null;
+  if (input.calcularMultaFgts) {
+    multaFgts = calcMultaFgts(input, tabela1.fgts);
+  }
+
   const tipoRescisao = input.pediuAConta ? "Pedido de demissão" : "Dispensa";
 
-  // Se pediu a conta → sempre soma Tabela 1 + Tabela 2
-  const totalFinal = input.pediuAConta && tabela2
-    ? tabela1.total + tabela2.total
-    : tabela1.total;
+  let totalFinal = tabela1.total;
+  if (input.pediuAConta && tabela2) {
+    totalFinal += tabela2.total;
+  }
+  if (multaFgts) {
+    totalFinal += multaFgts.multa40;
+  }
 
   return {
     previsaoParto,
@@ -106,6 +149,7 @@ export function calculate(input: CalcInput): CalcResult {
     mesesManual,
     tabela1,
     tabela2,
+    multaFgts,
     totalFinal,
     pediuAConta: input.pediuAConta,
     tipoRescisao,

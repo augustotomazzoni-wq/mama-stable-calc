@@ -10,16 +10,18 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   const sal = input.salario;
 
   // ===== Aba Parametros =====
-  const parametros = [
+  const parametros: (string | number)[][] = [
     ['Parâmetro', 'Valor'],
     ['Nome da cliente', input.nome],
     ['Data de nascimento', formatDateBR(input.nascimento)],
     ['Salário mensal', sal],
+    ['Data de admissão', input.admissao ? formatDateBR(input.admissao) : 'Não informada'],
     ['Data da demissão', formatDateBR(input.demissao)],
     ['Data da concepção', formatDateBR(input.concepcao)],
     ['Data do parto / previsão', formatDateBR(result.previsaoParto)],
     ['Empregada doméstica', input.empregadaDomestica ? 'Sim' : 'Não'],
     ['Pediu a conta', input.pediuAConta ? 'Sim' : 'Não'],
+    ['Calcular multa 40% FGTS', input.calcularMultaFgts ? 'Sim' : 'Não'],
     ['Tipo de rescisão', result.tipoRescisao],
     ['Meses até o parto (automático)', result.mesesEstabilidadeAuto - 5],
     ['Meses pós-parto (fixo)', 5],
@@ -31,13 +33,13 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   ];
   const wsParam = XLSX.utils.aoa_to_sheet(parametros);
   wsParam['!cols'] = [{ wch: 38 }, { wch: 30 }];
-  // Format salary cell as currency
   if (wsParam['B4']) wsParam['B4'].z = '#,##0.00';
   XLSX.utils.book_append_sheet(wb, wsParam, 'Parametros');
 
   // ===== Aba MemoriaCalculo =====
   const t1 = result.tabela1;
   const t2 = result.tabela2;
+  const mf = result.multaFgts;
 
   const header = ['Grupo', 'Item', 'Explicação simples', 'Conta usada', 'Resultado', 'Unidade', 'Observação'];
 
@@ -61,16 +63,32 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     );
   }
 
+  if (mf) {
+    rows.push(['', '', '', '', '', '', '']);
+    if (mf.temAdmissao) {
+      rows.push(
+        ['Multa FGTS', 'FGTS acumulado do contrato', 'FGTS acumulado calculado com base no salário, alíquota e meses de contrato', `${fmt(sal)} × ${aliquotaLabel} × ${mf.mesesContrato} meses`, mf.fgtsAcumuladoContrato, 'R$', ''],
+      );
+    } else {
+      rows.push(
+        ['Multa FGTS', 'FGTS acumulado do contrato', 'Data de admissão não informada', 'N/A', 0, 'R$', 'Multa calculada apenas sobre FGTS do acerto'],
+      );
+    }
+    rows.push(
+      ['Multa FGTS', 'FGTS do acerto (Tabela 1)', 'Corresponde ao FGTS calculado sobre as verbas da Tabela 1', `Valor do motor: ${fmt(mf.fgtsAcerto)}`, mf.fgtsAcerto, 'R$', ''],
+      ['Multa FGTS', 'Multa de 40%', 'Multa de 40% aplicada sobre a soma do FGTS acumulado e do acerto', mf.temAdmissao ? `(${fmt(mf.fgtsAcumuladoContrato)} + ${fmt(mf.fgtsAcerto)}) × 40%` : `${fmt(mf.fgtsAcerto)} × 40%`, mf.multa40, 'R$', !mf.temAdmissao ? 'Sem data de admissão — base apenas FGTS do acerto' : ''],
+    );
+  }
+
   rows.push(
     ['', '', '', '', '', '', ''],
-    ['TOTAL', 'Total Geral', 'Soma final de todas as tabelas', t2 ? 'Tabela 1 + Tabela 2' : 'Tabela 1', result.totalFinal, 'R$', ''],
+    ['TOTAL', 'Total Geral', 'Soma final de todas as tabelas', [t2 ? 'Tabela 1 + Tabela 2' : 'Tabela 1', mf ? ' + Multa 40%' : ''].join(''), result.totalFinal, 'R$', ''],
   );
 
   const wsMem = XLSX.utils.aoa_to_sheet(rows);
   wsMem['!cols'] = [
-    { wch: 12 }, { wch: 24 }, { wch: 50 }, { wch: 45 }, { wch: 18 }, { wch: 8 }, { wch: 40 },
+    { wch: 12 }, { wch: 28 }, { wch: 55 }, { wch: 50 }, { wch: 18 }, { wch: 8 }, { wch: 45 },
   ];
-  // Format currency cells in column E (index 4)
   for (let r = 1; r < rows.length; r++) {
     const cell = wsMem[XLSX.utils.encode_cell({ r, c: 4 })];
     if (cell && typeof cell.v === 'number') {
@@ -90,18 +108,19 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   XLSX.utils.book_append_sheet(wb, wsRaw, 'ResultadoBruto');
 
   // ===== Aba Observacoes =====
-  const obs = [
+  const obs: string[][] = [
     ['Observação'],
     ['Planilha gerada automaticamente pelo sistema Cálculos Gestante.'],
     ['Memória de cálculo organizada para conferência judicial.'],
     ['Todos os valores foram localizados diretamente no objeto de resultado do sistema.'],
     [`Alíquota de FGTS aplicada: ${aliquotaLabel} (${input.empregadaDomestica ? 'Empregada doméstica' : 'CLT geral'}).`],
     [t2 ? 'Tabela 2 calculada — a cliente pediu demissão.' : 'Tabela 2 não calculada — rescisão por dispensa.'],
+    [mf ? `Multa de 40% do FGTS ativada. ${mf.temAdmissao ? 'Data de admissão informada — FGTS do contrato incluído.' : 'Sem data de admissão — multa sobre FGTS do acerto apenas.'}` : 'Multa de 40% do FGTS não ativada.'],
     ['Tabela elaborada por Dr. Augusto Tomazzoni Lubenow — OAB 133519.'],
     [`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`],
   ];
   const wsObs = XLSX.utils.aoa_to_sheet(obs);
-  wsObs['!cols'] = [{ wch: 80 }];
+  wsObs['!cols'] = [{ wch: 90 }];
   XLSX.utils.book_append_sheet(wb, wsObs, 'Observacoes');
 
   // ===== Salvar =====

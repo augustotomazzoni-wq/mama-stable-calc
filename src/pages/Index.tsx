@@ -5,9 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
+import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
 import Login from "./Login";
@@ -17,6 +18,7 @@ const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 const Index = () => {
   const [autenticado, setAutenticado] = useState(false);
   const [step, setStep] = useState(1);
+  const [showMemoria, setShowMemoria] = useState(false);
 
   // Step 1
   const [nome, setNome] = useState("");
@@ -26,11 +28,13 @@ const Index = () => {
   const [empregadaDomestica, setEmpregadaDomestica] = useState(false);
 
   // Step 2
+  const [admissao, setAdmissao] = useState("");
   const [demissao, setDemissao] = useState("");
   const [concepcao, setConcepcao] = useState("");
   const [partoPrevisao, setPartoPrevisao] = useState("");
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
+  const [calcularMultaFgts, setCalcularMultaFgts] = useState(false);
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
@@ -77,7 +81,7 @@ const Index = () => {
     }
   }, [concepcao, ultimoEditado, autoParto]);
 
-  // Auto-calculate concepcao from parto (inverse: parto - 266 days)
+  // Auto-calculate concepcao from parto
   useEffect(() => {
     if (ultimoEditado === "parto" && partoPrevisao && autoConcepcao) {
       const pDate = parseDateFromInput(partoPrevisao);
@@ -88,12 +92,18 @@ const Index = () => {
     }
   }, [partoPrevisao, ultimoEditado, autoConcepcao]);
 
+  // Reset multa switch when pediuAConta is turned off
+  useEffect(() => {
+    if (!pediuAConta) {
+      setCalcularMultaFgts(false);
+    }
+  }, [pediuAConta]);
+
   const concepcaoDate = parseDateFromInput(concepcao);
   const demissaoDate = parseDateFromInput(demissao);
   const partoDate = parseDateFromInput(partoPrevisao);
   const showWarning = concepcaoDate && demissaoDate && concepcaoDate > demissaoDate;
 
-  // Live preview stability months
   const mesesAtePartoAuto = useMemo(() => {
     if (!demissaoDate || !partoDate) return null;
     return calcMesesAteParto(demissaoDate, partoDate);
@@ -132,10 +142,13 @@ const Index = () => {
         pediuAConta,
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
         empregadaDomestica,
+        admissao: admissao ? parseDateFromInput(admissao) : null,
+        calcularMultaFgts,
       };
       setInputData(input);
       setResult(calculate(input));
       setStep(3);
+      setShowMemoria(false);
     }
   };
 
@@ -146,11 +159,13 @@ const Index = () => {
     setPediuAConta(false);
     setEmpregadaDomestica(false);
     setSalario("");
+    setAdmissao("");
     setDemissao("");
     setConcepcao("");
     setPartoPrevisao("");
     setEditarMesesManual(false);
     setMesesManual("");
+    setCalcularMultaFgts(false);
     setUltimoEditado(null);
     setAutoConcepcao(true);
     setAutoParto(true);
@@ -158,6 +173,7 @@ const Index = () => {
     setExameData("");
     setExameSemanas("");
     setExameDias("");
+    setShowMemoria(false);
   };
 
   if (!autenticado) {
@@ -191,33 +207,15 @@ const Index = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome completo *</Label>
-                <Input
-                  id="nome"
-                  placeholder="Maria da Silva"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                />
+                <Input id="nome" placeholder="Maria da Silva" value={nome} onChange={(e) => setNome(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nascimento">Data de nascimento *</Label>
-                <Input
-                  id="nascimento"
-                  type="date"
-                  value={nascimento}
-                  onChange={(e) => setNascimento(e.target.value)}
-                />
+                <Input id="nascimento" type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="salario">Salário da gestante na carteira (CTPS) *</Label>
-                <Input
-                  id="salario"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="3500.00"
-                  value={salario}
-                  onChange={(e) => setSalario(e.target.value)}
-                />
+                <Input id="salario" type="number" min="0.01" step="0.01" placeholder="3500.00" value={salario} onChange={(e) => setSalario(e.target.value)} />
               </div>
 
               {/* Toggle empregada doméstica */}
@@ -229,11 +227,7 @@ const Index = () => {
                       Empregada doméstica?
                     </Label>
                   </div>
-                  <Switch
-                    id="empregadaDomestica"
-                    checked={empregadaDomestica}
-                    onCheckedChange={setEmpregadaDomestica}
-                  />
+                  <Switch id="empregadaDomestica" checked={empregadaDomestica} onCheckedChange={setEmpregadaDomestica} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {empregadaDomestica
@@ -248,11 +242,7 @@ const Index = () => {
                   <Label htmlFor="pediuAConta" className="text-base font-semibold cursor-pointer">
                     Ela pediu a conta?
                   </Label>
-                  <Switch
-                    id="pediuAConta"
-                    checked={pediuAConta}
-                    onCheckedChange={setPediuAConta}
-                  />
+                  <Switch id="pediuAConta" checked={pediuAConta} onCheckedChange={setPediuAConta} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {pediuAConta
@@ -261,11 +251,7 @@ const Index = () => {
                 </p>
               </div>
 
-              <Button
-                onClick={handleNext}
-                disabled={!isStep1Valid}
-                className="w-full gap-2 mt-2"
-              >
+              <Button onClick={handleNext} disabled={!isStep1Valid} className="w-full gap-2 mt-2">
                 Próximo
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -281,14 +267,16 @@ const Index = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="demissao">Data de demissão *</Label>
-                <Input
-                  id="demissao"
-                  type="date"
-                  value={demissao}
-                  onChange={(e) => setDemissao(e.target.value)}
-                />
+                <Label htmlFor="admissao">Data de admissão (opcional)</Label>
+                <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Usada para calcular o FGTS acumulado até a saída, quando preenchida.</p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="demissao">Data de demissão *</Label>
+                <Input id="demissao" type="date" value={demissao} onChange={(e) => setDemissao(e.target.value)} />
+              </div>
+
               {/* Exam-based helper */}
               <div className="rounded-lg border-2 border-muted bg-muted/30 p-4 space-y-3">
                 <button
@@ -433,16 +421,34 @@ const Index = () => {
                 </div>
               )}
 
+              {/* Multa FGTS 40% switch - only when pediuAConta */}
+              {pediuAConta && (
+                <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      <Label htmlFor="calcularMultaFgts" className="text-base font-semibold cursor-pointer">
+                        Calcular multa de FGTS de 40%?
+                      </Label>
+                    </div>
+                    <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {calcularMultaFgts
+                      ? admissao
+                        ? "A multa será calculada sobre o FGTS acumulado do contrato + FGTS do acerto"
+                        : "A multa será calculada apenas sobre o FGTS do acerto (preencha a data de admissão para incluir o FGTS do contrato)"
+                      : "Ative para incluir a multa de 40% do FGTS no cálculo"}
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-3 mt-2">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 gap-2">
                   <ArrowLeft className="w-4 h-4" />
                   Voltar
                 </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={!isStep2Valid}
-                  className="flex-1 gap-2"
-                >
+                <Button onClick={handleNext} disabled={!isStep2Valid} className="flex-1 gap-2">
                   Calcular
                   <ArrowRight className="w-4 h-4" />
                 </Button>
@@ -453,12 +459,21 @@ const Index = () => {
 
         {/* Step 3 */}
         {step === 3 && result && inputData && (
-          <ResultCard
-            input={inputData}
-            result={result}
-            onReset={handleReset}
-            onBack={() => setStep(2)}
-          />
+          showMemoria ? (
+            <MemoriaCalculoDetalhada
+              input={inputData}
+              result={result}
+              onClose={() => setShowMemoria(false)}
+            />
+          ) : (
+            <ResultCard
+              input={inputData}
+              result={result}
+              onReset={handleReset}
+              onBack={() => setStep(2)}
+              onOpenMemoria={() => setShowMemoria(true)}
+            />
+          )
         )}
       </div>
     </div>
