@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { X, Printer } from "lucide-react";
 
 interface Props {
@@ -36,6 +38,34 @@ const SubtotalLinha = ({ titulo, valor }: { titulo: string; valor: number }) => 
   </div>
 );
 
+interface DadoItem {
+  key: string;
+  label: string;
+  value: string;
+}
+
+const DadoLinha = ({
+  label,
+  value,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  checked: boolean;
+  onToggle: () => void;
+}) => (
+  <div className={`flex items-center gap-2 ${!checked ? "print:hidden" : ""}`}>
+    <Checkbox
+      checked={checked}
+      onCheckedChange={onToggle}
+      className="print:hidden h-3.5 w-3.5"
+    />
+    <span className="text-muted-foreground text-sm">{label}</span>
+    <span className="font-medium text-foreground text-sm ml-auto">{value}</span>
+  </div>
+);
+
 const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
@@ -48,6 +78,32 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Build dados do caso items
+  const dadosItems: DadoItem[] = [
+    { key: "nome", label: "Nome da reclamante", value: input.nome },
+    { key: "nascimento", label: "Data de nascimento", value: formatDateBR(input.nascimento) },
+    ...(input.admissao
+      ? [{ key: "admissao", label: "Data de admissão", value: formatDateBR(input.admissao) }]
+      : []),
+    { key: "demissao", label: "Data de demissão", value: formatDateBR(input.demissao) },
+    { key: "concepcao", label: "Data de concepção", value: formatDateBR(input.concepcao) },
+    { key: "parto", label: "Data do parto / previsão", value: formatDateBR(result.previsaoParto) },
+    { key: "fimEstab", label: "Fim da estabilidade", value: formatDateBR(result.fimEstabilidade) },
+    { key: "salario", label: "Salário base (CTPS)", value: fmt(sal) },
+    { key: "categoria", label: "Categoria profissional", value: input.empregadaDomestica ? "Empregada doméstica" : "CLT geral" },
+    { key: "rescisao", label: "Tipo de rescisão", value: result.tipoRescisao },
+    { key: "aliquota", label: "Alíquota FGTS", value: aliquotaLabel },
+    { key: "meses", label: "Meses de estabilidade", value: String(meses) },
+  ];
+
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(dadosItems.map((d) => [d.key, true]))
+  );
+
+  const toggleItem = (key: string) => {
+    setCheckedItems((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -64,48 +120,16 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
           1. Dados do Caso
         </h2>
-        <div className="grid grid-cols-[1fr_1fr] gap-x-8 gap-y-1.5 text-sm">
-          <span className="text-muted-foreground">Nome da reclamante</span>
-          <span className="font-medium text-foreground">{input.nome}</span>
-
-          <span className="text-muted-foreground">Data de nascimento</span>
-          <span className="font-medium text-foreground">{formatDateBR(input.nascimento)}</span>
-
-          {input.admissao && (
-            <>
-              <span className="text-muted-foreground">Data de admissão</span>
-              <span className="font-medium text-foreground">{formatDateBR(input.admissao)}</span>
-            </>
-          )}
-
-          <span className="text-muted-foreground">Data de demissão</span>
-          <span className="font-medium text-foreground">{formatDateBR(input.demissao)}</span>
-
-          <span className="text-muted-foreground">Data de concepção</span>
-          <span className="font-medium text-foreground">{formatDateBR(input.concepcao)}</span>
-
-          <span className="text-muted-foreground">Data do parto / previsão</span>
-          <span className="font-medium text-foreground">{formatDateBR(result.previsaoParto)}</span>
-
-          <span className="text-muted-foreground">Fim da estabilidade</span>
-          <span className="font-medium text-foreground">{formatDateBR(result.fimEstabilidade)}</span>
-
-          <span className="text-muted-foreground">Salário base (CTPS)</span>
-          <span className="font-medium text-foreground">{fmt(sal)}</span>
-
-          <span className="text-muted-foreground">Categoria profissional</span>
-          <span className="font-medium text-foreground">{input.empregadaDomestica ? "Empregada doméstica" : "CLT geral"}</span>
-
-          <span className="text-muted-foreground">Tipo de rescisão</span>
-          <span className="font-medium text-foreground">{result.tipoRescisao}</span>
-
-          <span className="text-muted-foreground">Alíquota FGTS</span>
-          <span className="font-medium text-foreground">{aliquotaLabel}</span>
-
-          <span className="text-muted-foreground">Meses de estabilidade</span>
-          <span className="font-medium text-foreground">
-            {meses} {result.mesesManual ? "(manual)" : "(automático)"}
-          </span>
+        <div className="grid grid-cols-1 gap-y-1.5">
+          {dadosItems.map((item) => (
+            <DadoLinha
+              key={item.key}
+              label={item.label}
+              value={item.value}
+              checked={checkedItems[item.key] ?? true}
+              onToggle={() => toggleItem(item.key)}
+            />
+          ))}
         </div>
       </section>
 
