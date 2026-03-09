@@ -185,7 +185,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-lg mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 print:hidden">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-3">
             
           </div>
@@ -197,7 +197,9 @@ const Index = () => {
           </p>
         </div>
 
-        <StepIndicator currentStep={step} steps={STEPS} />
+        <div className="print:hidden">
+          <StepIndicator currentStep={step} steps={STEPS} />
+        </div>
 
         {/* Step 1 */}
         {step === 1 &&
