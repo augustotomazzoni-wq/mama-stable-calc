@@ -27,7 +27,7 @@ Demissão: ${formatDateBR(input.demissao)}
 Concepção: ${formatDateBR(input.concepcao)}
 Previsão do parto: ${formatDateBR(result.previsaoParto)}
 Estabilidade até: ${formatDateBR(result.fimEstabilidade)}
-Período de estabilidade: ${result.mesesEstabilidade} meses (${result.mesesManual ? "Manual" : "Automático"})
+Período de estabilidade: ${result.mesesEstabilidade} meses
 Tipo de rescisão: ${result.tipoRescisao}
 
 Cálculo de Indenização:
