@@ -218,9 +218,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
       {/* Rodapé */}
       <div className="text-center border-t border-foreground/20 pt-6 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          Documento gerado automaticamente para conferência da memória de cálculo.
-        </p>
         <p className="text-xs font-semibold text-foreground">Elaborado por Dr. Augusto Tomazzoni Lubenow</p>
         <p className="text-xs text-muted-foreground">OAB 133519</p>
       </div>
