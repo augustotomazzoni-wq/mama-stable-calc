@@ -47,44 +47,34 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     ['Indenização', 'Salários do período', 'Salário mensal multiplicado pelos meses de estabilidade', `${fmt(sal)} × ${meses}`, t1.salarios, 'R$', ''],
     ['Indenização', '13º proporcional', 'Um doze avos do salário por mês de estabilidade', `(${fmt(sal)} / 12) × ${meses}`, t1.decimoTerceiro, 'R$', ''],
     ['Indenização', 'Férias + 1/3', 'Um terço do salário somado ao 13º proporcional', `(${fmt(sal)} / 3) + ${fmt(t1.decimoTerceiro)}`, t1.feriasComTerco, 'R$', ''],
-    ['Indenização', 'Subtotal Indenização', 'Soma das verbas de indenização', 'Salários + 13º + Férias', t1.total, 'R$', ''],
-    ['', '', '', '', '', '', ''],
-    ['Rescisórias', `FGTS (${aliquotaLabel})`, 'FGTS calculado sobre salários + 13º + férias', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel}`, t2.fgts, 'R$', input.empregadaDomestica ? 'Alíquota doméstica 11,2%' : 'Alíquota CLT 8%'],
+    ['Indenização', `FGTS (${aliquotaLabel})`, 'FGTS calculado sobre salários + 13º + férias', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel}`, t1.fgts, 'R$', input.empregadaDomestica ? 'Alíquota doméstica 11,2%' : 'Alíquota CLT 8%'],
+    ['Indenização', 'Subtotal Indenização', 'Soma das verbas de indenização + FGTS', 'Salários + 13º + Férias + FGTS', t1.total, 'R$', ''],
   ];
 
-  if (input.pediuAConta) {
+  if (t2) {
     rows.push(
+      ['', '', '', '', '', '', ''],
       ['Rescisórias', 'Aviso prévio', 'Valor equivalente a um salário mensal', `${fmt(sal)}`, t2.avisoProvio, 'R$', 'Devido em caso de pedido de demissão'],
       ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio', `${fmt(t2.avisoProvio)} / 12`, t2.decimoTerceiroAviso, 'R$', ''],
       ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso prévio', `(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)}`, t2.feriasComTercoAviso, 'R$', ''],
       ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `${fmt(sal)}`, t2.multa477, 'R$', ''],
+      ['Rescisórias', 'Subtotal Verbas Rescisórias', 'Soma das verbas rescisórias', 'Aviso + 13º + Férias + Multa 477', t2.total, 'R$', ''],
     );
   }
 
-  rows.push(
-    ['Rescisórias', 'Subtotal Verbas Rescisórias', 'Soma das verbas rescisórias', 'FGTS + Aviso + 13º + Férias + Multa 477', t2.total, 'R$', ''],
-  );
-
   if (mf) {
-    rows.push(['', '', '', '', '', '', '']);
-    if (mf.temAdmissao) {
-      rows.push(
-        ['Multa FGTS', 'FGTS acumulado do contrato', 'FGTS acumulado calculado com base no salário, alíquota e meses de contrato', `${fmt(sal)} × ${aliquotaLabel} × ${mf.mesesContrato} meses`, mf.fgtsAcumuladoContrato, 'R$', ''],
-      );
-    } else {
-      rows.push(
-        ['Multa FGTS', 'FGTS acumulado do contrato', 'Data de admissão não informada', 'N/A', 0, 'R$', 'Multa calculada apenas sobre FGTS do acerto'],
-      );
-    }
     rows.push(
-      ['Multa FGTS', 'FGTS do acerto', 'Corresponde ao FGTS calculado sobre as verbas rescisórias', `Valor do motor: ${fmt(mf.fgtsAcerto)}`, mf.fgtsAcerto, 'R$', ''],
-      ['Multa FGTS', 'Multa de 40%', 'Multa de 40% aplicada sobre a soma do FGTS acumulado e do acerto', mf.temAdmissao ? `(${fmt(mf.fgtsAcumuladoContrato)} + ${fmt(mf.fgtsAcerto)}) × 40%` : `${fmt(mf.fgtsAcerto)} × 40%`, mf.multa40, 'R$', !mf.temAdmissao ? 'Sem data de admissão — base apenas FGTS do acerto' : ''],
+      ['', '', '', '', '', '', ''],
+      ['Multa FGTS', 'FGTS sobre verbas indenizatórias', 'FGTS apurado na indenização', `Valor da indenização: ${fmt(mf.fgtsRescisorio)}`, mf.fgtsRescisorio, 'R$', ''],
+      ['Multa FGTS', 'FGTS estimado do contrato', 'FGTS acumulado no período trabalhado', `${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel}`, mf.fgtsPeriodoContrato, 'R$', ''],
+      ['Multa FGTS', 'Base total do FGTS', 'Soma dos dois FGTS', `${fmt(mf.fgtsRescisorio)} + ${fmt(mf.fgtsPeriodoContrato)}`, mf.baseTotalFgts, 'R$', ''],
+      ['Multa FGTS', 'Multa de 40%', 'Multa de 40% sobre base total', `${fmt(mf.baseTotalFgts)} × 40%`, mf.multa40, 'R$', ''],
     );
   }
 
   rows.push(
     ['', '', '', '', '', '', ''],
-    ['TOTAL', 'Total Geral', 'Soma final de todas as verbas', 'Indenização + Rescisórias' + (mf ? ' + Multa 40%' : ''), result.totalFinal, 'R$', ''],
+    ['TOTAL', 'Total Geral', 'Soma final de todas as verbas', `Indenização${t2 ? ' + Rescisórias' : ''}${mf ? ' + Multa 40%' : ''}`, result.totalFinal, 'R$', ''],
   );
 
   const wsMem = XLSX.utils.aoa_to_sheet(rows);
@@ -116,8 +106,8 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     ['Memorial de cálculo organizado para conferência judicial.'],
     ['Todos os valores foram localizados diretamente no objeto de resultado do sistema.'],
     [`Alíquota de FGTS aplicada: ${aliquotaLabel} (${input.empregadaDomestica ? 'Empregada doméstica' : 'CLT geral'}).`],
-    [input.pediuAConta ? 'Verbas rescisórias completas — a cliente pediu demissão.' : 'Verbas rescisórias com FGTS apenas — rescisão por dispensa.'],
-    [mf ? `Multa de 40% do FGTS ativada. ${mf.temAdmissao ? 'Data de admissão informada — FGTS do contrato incluído.' : 'Sem data de admissão — multa sobre FGTS do acerto apenas.'}` : 'Multa de 40% do FGTS não ativada.'],
+    [input.pediuAConta ? 'Verbas rescisórias completas — a cliente pediu demissão.' : 'Sem verbas rescisórias adicionais — rescisão por dispensa.'],
+    [mf ? `Multa de 40% do FGTS ativada. ${mf.mesesTrabalhados > 0 ? 'Data de admissão informada — FGTS do contrato incluído.' : 'FGTS do contrato zerado.'}` : 'Multa de 40% do FGTS não ativada.'],
     ['Tabela elaborada por Dr. Augusto Tomazzoni Lubenow — OAB 133519.'],
     [`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`],
   ];

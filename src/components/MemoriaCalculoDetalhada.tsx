@@ -1,8 +1,7 @@
 import { CalcInput, CalcResult } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, FileText, Calendar, DollarSign, Scale, Shield, Printer } from "lucide-react";
+import { X, Printer } from "lucide-react";
 
 interface Props {
   input: CalcInput;
@@ -10,29 +9,30 @@ interface Props {
   onClose: () => void;
 }
 
-const VerbaBlock = ({
-  title,
-  value,
-  explanation,
+const LinhaVerba = ({
+  titulo,
+  valor,
   formula,
-  observation,
 }: {
-  title: string;
-  value: number;
-  explanation: string;
+  titulo: string;
+  valor: number;
   formula: string;
-  observation?: string;
 }) => (
-  <div className="rounded-lg border bg-card p-4 space-y-2">
-    <div className="flex items-center justify-between">
-      <span className="font-semibold text-sm text-foreground">{title}</span>
-      <span className="text-lg font-bold text-primary font-display">{formatBRL(value)}</span>
+  <div className="py-3 border-b border-border/60">
+    <div className="flex items-baseline justify-between">
+      <span className="text-sm font-medium text-foreground">{titulo}</span>
+      <span className="text-sm font-semibold text-foreground tabular-nums">{formatBRL(valor)}</span>
     </div>
-    <p className="text-xs text-muted-foreground">{explanation}</p>
-    <p className="text-xs font-mono bg-muted/50 rounded px-2 py-1 text-foreground/80">{formula}</p>
-    {observation && (
-      <p className="text-xs italic text-muted-foreground">⚠ {observation}</p>
-    )}
+    <p className="text-xs text-muted-foreground mt-1 font-mono">Cálculo: {formula}</p>
+  </div>
+);
+
+const SubtotalLinha = ({ titulo, valor }: { titulo: string; valor: number }) => (
+  <div className="py-3 border-b-2 border-foreground/20">
+    <div className="flex items-baseline justify-between">
+      <span className="text-sm font-bold text-foreground uppercase tracking-wide">{titulo}</span>
+      <span className="text-base font-bold text-foreground tabular-nums">{formatBRL(valor)}</span>
+    </div>
   </div>
 );
 
@@ -51,220 +51,185 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <Card className="border-2 border-primary/30 bg-accent/30">
-        <CardContent className="pt-6 text-center space-y-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Documento de Conferência</p>
-          <h2 className="text-xl font-display font-bold text-foreground">Memorial de Cálculo Detalhado</h2>
-        </CardContent>
-      </Card>
+    <div className="space-y-8 animate-fade-in max-w-2xl mx-auto">
+      {/* Cabeçalho */}
+      <div className="text-center border-b-2 border-foreground/30 pb-6">
+        <h1 className="text-lg font-bold text-foreground uppercase tracking-widest">
+          Memorial de Cálculo Detalhado
+        </h1>
+        <p className="text-xs text-muted-foreground mt-2">
+          Documento gerado para conferência judicial
+        </p>
+      </div>
 
-      {/* Dados Iniciais */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            Dados Iniciais
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <span className="text-muted-foreground">Nome da cliente</span>
-            <span className="font-medium">{input.nome}</span>
-            <span className="text-muted-foreground">Data de nascimento</span>
-            <span className="font-medium">{formatDateBR(input.nascimento)}</span>
-            {input.admissao && (
-              <>
-                <span className="text-muted-foreground">Data de admissão</span>
-                <span className="font-medium">{formatDateBR(input.admissao)}</span>
-              </>
-            )}
-            <span className="text-muted-foreground">Data de demissão</span>
-            <span className="font-medium">{formatDateBR(input.demissao)}</span>
-            <span className="text-muted-foreground">Data de concepção</span>
-            <span className="font-medium">{formatDateBR(input.concepcao)}</span>
-            <span className="text-muted-foreground">Data do parto / previsão</span>
-            <span className="font-medium">{formatDateBR(result.previsaoParto)}</span>
-            <span className="text-muted-foreground">Salário base</span>
-            <span className="font-medium">{fmt(sal)}</span>
-            <span className="text-muted-foreground">Empregada doméstica</span>
-            <span className="font-medium">{input.empregadaDomestica ? "Sim" : "Não"}</span>
-            <span className="text-muted-foreground">Pediu a conta</span>
-            <span className="font-medium">{input.pediuAConta ? "Sim" : "Não"}</span>
-            <span className="text-muted-foreground">Multa 40% FGTS ativada</span>
-            <span className="font-medium">{input.calcularMultaFgts ? "Sim" : "Não"}</span>
-          </div>
-          <div className="mt-4 pt-3 border-t grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <span className="text-muted-foreground">Meses até o parto</span>
-            <span className="font-medium">{result.mesesEstabilidadeAuto - 5}</span>
-            <span className="text-muted-foreground">Meses pós-parto (fixo)</span>
-            <span className="font-medium">5</span>
-            <span className="text-muted-foreground">Total de meses considerados</span>
-            <span className="font-medium">{meses} {result.mesesManual ? "(manual)" : "(automático)"}</span>
-            <span className="text-muted-foreground">Alíquota FGTS</span>
-            <span className="font-medium">{aliquotaLabel}</span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 1. Dados do Caso */}
+      <section>
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
+          1. Dados do Caso
+        </h2>
+        <div className="grid grid-cols-[1fr_1fr] gap-x-8 gap-y-1.5 text-sm">
+          <span className="text-muted-foreground">Nome da cliente</span>
+          <span className="font-medium text-foreground">{input.nome}</span>
 
-      {/* Cálculo de Indenização */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-primary" />
-            Cálculo de Indenização
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <VerbaBlock
-            title="Salários do período"
-            value={t1.salarios}
-            explanation="Salário mensal multiplicado pelos meses da estabilidade"
-            formula={`${fmt(sal)} × ${meses} meses = ${fmt(t1.salarios)}`}
-          />
-          <VerbaBlock
-            title="13º proporcional"
-            value={t1.decimoTerceiro}
-            explanation="13º calculado proporcionalmente sobre o período considerado"
-            formula={`(${fmt(sal)} / 12) × ${meses} = ${fmt(t1.decimoTerceiro)}`}
-          />
-          <VerbaBlock
-            title="Férias + 1/3"
-            value={t1.feriasComTerco}
-            explanation="Férias proporcionais acrescidas de 1/3 constitucional"
-            formula={`(${fmt(sal)} / 3) + ${fmt(t1.decimoTerceiro)} = ${fmt(t1.feriasComTerco)}`}
-          />
+          <span className="text-muted-foreground">Data de nascimento</span>
+          <span className="font-medium text-foreground">{formatDateBR(input.nascimento)}</span>
 
-          <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
-            <span className="font-bold text-sm">Subtotal Indenização</span>
-            <span className="text-xl font-bold text-primary font-display">{fmt(t1.total)}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Cálculo das verbas rescisórias */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Scale className="w-4 h-4 text-primary" />
-            Cálculo das verbas rescisórias
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <VerbaBlock
-            title={`FGTS (${aliquotaLabel})`}
-            value={t2.fgts}
-            explanation="FGTS calculado sobre a base de Salários + 13º + Férias"
-            formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel} = ${fmt(t2.fgts)}`}
-            observation={input.empregadaDomestica ? "Alíquota de 11,2% aplicada (empregada doméstica)" : undefined}
-          />
-
-          {input.pediuAConta && (
+          {input.admissao && (
             <>
-              <VerbaBlock
-                title="Aviso prévio"
-                value={t2.avisoProvio}
-                explanation="Valor equivalente a um salário mensal"
-                formula={`${fmt(sal)}`}
-              />
-              <VerbaBlock
-                title="13º sobre aviso"
-                value={t2.decimoTerceiroAviso}
-                explanation="Um doze avos do aviso prévio"
-                formula={`${fmt(t2.avisoProvio)} / 12 = ${fmt(t2.decimoTerceiroAviso)}`}
-              />
-              <VerbaBlock
-                title="Férias + 1/3 sobre aviso"
-                value={t2.feriasComTercoAviso}
-                explanation="Férias proporcionais acrescidas de 1/3 sobre o aviso prévio"
-                formula={`(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
-              />
-              <VerbaBlock
-                title="Multa art. 477"
-                value={t2.multa477}
-                explanation="Multa por atraso no pagamento das verbas rescisórias"
-                formula={`${fmt(sal)}`}
-              />
+              <span className="text-muted-foreground">Data de admissão</span>
+              <span className="font-medium text-foreground">{formatDateBR(input.admissao)}</span>
             </>
           )}
 
-          <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
-            <span className="font-bold text-sm">Subtotal Verbas Rescisórias</span>
-            <span className="text-xl font-bold text-primary font-display">{fmt(t2.total)}</span>
-          </div>
-        </CardContent>
-      </Card>
+          <span className="text-muted-foreground">Data de demissão</span>
+          <span className="font-medium text-foreground">{formatDateBR(input.demissao)}</span>
 
-      {/* Multa FGTS 40% */}
-      {mf && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Multa de 40% do FGTS
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mf.temAdmissao ? (
-              <VerbaBlock
-                title="FGTS acumulado do contrato até a saída"
-                value={mf.fgtsAcumuladoContrato}
-                explanation="FGTS acumulado calculado com base no salário, alíquota e meses de contrato"
-                formula={`${fmt(sal)} × ${aliquotaLabel} × ${mf.mesesContrato} meses = ${fmt(mf.fgtsAcumuladoContrato)}`}
-              />
-            ) : (
-              <div className="rounded-lg border bg-card p-4 space-y-2">
-                <span className="font-semibold text-sm text-foreground">FGTS acumulado do contrato</span>
-                <p className="text-xs text-muted-foreground">
-                  Data de admissão não informada — multa calculada apenas sobre o FGTS do acerto.
-                </p>
-              </div>
-            )}
+          <span className="text-muted-foreground">Data de concepção</span>
+          <span className="font-medium text-foreground">{formatDateBR(input.concepcao)}</span>
 
-            <VerbaBlock
-              title="FGTS devido sobre o acerto"
-              value={mf.fgtsAcerto}
-              explanation="Corresponde ao FGTS calculado sobre as verbas rescisórias"
-              formula={`Valor calculado pelo motor interno do sistema: ${fmt(mf.fgtsAcerto)}`}
-            />
+          <span className="text-muted-foreground">Data do parto / previsão</span>
+          <span className="font-medium text-foreground">{formatDateBR(result.previsaoParto)}</span>
 
-            <VerbaBlock
-              title="Multa de 40% do FGTS"
-              value={mf.multa40}
-              explanation="Multa de 40% aplicada sobre a soma do FGTS acumulado do contrato com o FGTS do acerto"
-              formula={mf.temAdmissao
-                ? `(${fmt(mf.fgtsAcumuladoContrato)} + ${fmt(mf.fgtsAcerto)}) × 40% = ${fmt(mf.multa40)}`
-                : `${fmt(mf.fgtsAcerto)} × 40% = ${fmt(mf.multa40)}`
-              }
-              observation={!mf.temAdmissao ? "Sem data de admissão — base considera apenas FGTS do acerto" : undefined}
-            />
-          </CardContent>
-        </Card>
+          <span className="text-muted-foreground">Fim da estabilidade</span>
+          <span className="font-medium text-foreground">{formatDateBR(result.fimEstabilidade)}</span>
+
+          <span className="text-muted-foreground">Salário base (CTPS)</span>
+          <span className="font-medium text-foreground">{fmt(sal)}</span>
+
+          <span className="text-muted-foreground">Categoria profissional</span>
+          <span className="font-medium text-foreground">{input.empregadaDomestica ? "Empregada doméstica" : "CLT geral"}</span>
+
+          <span className="text-muted-foreground">Tipo de rescisão</span>
+          <span className="font-medium text-foreground">{result.tipoRescisao}</span>
+
+          <span className="text-muted-foreground">Alíquota FGTS</span>
+          <span className="font-medium text-foreground">{aliquotaLabel}</span>
+
+          <span className="text-muted-foreground">Meses de estabilidade</span>
+          <span className="font-medium text-foreground">
+            {meses} {result.mesesManual ? "(manual)" : "(automático)"}
+          </span>
+        </div>
+      </section>
+
+      {/* 2. Cálculo de Indenização */}
+      <section>
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
+          2. Cálculo de Indenização
+        </h2>
+
+        <LinhaVerba
+          titulo="Salários do período"
+          valor={t1.salarios}
+          formula={`${fmt(sal)} × ${meses} meses = ${fmt(t1.salarios)}`}
+        />
+        <LinhaVerba
+          titulo="13º proporcional"
+          valor={t1.decimoTerceiro}
+          formula={`(${fmt(sal)} ÷ 12) × ${meses} = ${fmt(t1.decimoTerceiro)}`}
+        />
+        <LinhaVerba
+          titulo="Férias + 1/3"
+          valor={t1.feriasComTerco}
+          formula={`(${fmt(sal)} ÷ 3) + ${fmt(t1.decimoTerceiro)} = ${fmt(t1.feriasComTerco)}`}
+        />
+        <LinhaVerba
+          titulo={`FGTS (${aliquotaLabel})`}
+          valor={t1.fgts}
+          formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel} = ${fmt(t1.fgts)}`}
+        />
+
+        <SubtotalLinha titulo="Subtotal Indenização" valor={t1.total} />
+      </section>
+
+      {/* 3. Cálculo das verbas rescisórias */}
+      {t2 && (
+        <section>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
+            3. Cálculo das Verbas Rescisórias
+          </h2>
+
+          <LinhaVerba
+            titulo="Aviso prévio"
+            valor={t2.avisoProvio}
+            formula={`${fmt(sal)} (1 salário)`}
+          />
+          <LinhaVerba
+            titulo="13º sobre aviso"
+            valor={t2.decimoTerceiroAviso}
+            formula={`${fmt(t2.avisoProvio)} ÷ 12 = ${fmt(t2.decimoTerceiroAviso)}`}
+          />
+          <LinhaVerba
+            titulo="Férias + 1/3 sobre aviso"
+            valor={t2.feriasComTercoAviso}
+            formula={`(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
+          />
+          <LinhaVerba
+            titulo="Multa art. 477"
+            valor={t2.multa477}
+            formula={`${fmt(sal)} (1 salário)`}
+          />
+
+          <SubtotalLinha titulo="Subtotal Verbas Rescisórias" valor={t2.total} />
+        </section>
       )}
 
-      {/* TOTAL GERAL */}
-      <Card className="border-2 border-primary/40 bg-primary/10">
-        <CardContent className="py-6 text-center space-y-2">
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Geral da Indenização</p>
-          <p className="text-4xl font-bold text-primary font-display">{fmt(result.totalFinal)}</p>
-          <p className="text-xs text-muted-foreground">
-            Indenização + Verbas Rescisórias{mf ? " + Multa 40% FGTS" : ""} — Soma final das verbas apuradas
-          </p>
-        </CardContent>
-      </Card>
+      {/* 4. Multa de 40% do FGTS */}
+      {mf && (
+        <section>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
+            {t2 ? "4" : "3"}. Multa de 40% do FGTS
+          </h2>
+
+          <LinhaVerba
+            titulo="FGTS sobre verbas indenizatórias"
+            valor={mf.fgtsRescisorio}
+            formula={`Valor apurado no item 2: ${fmt(mf.fgtsRescisorio)}`}
+          />
+          <LinhaVerba
+            titulo="FGTS estimado do período já trabalhado"
+            valor={mf.fgtsPeriodoContrato}
+            formula={`${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel} = ${fmt(mf.fgtsPeriodoContrato)}`}
+          />
+          <div className="py-3 border-b border-border/60">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-medium text-foreground">Base total do FGTS</span>
+              <span className="text-sm font-semibold text-foreground tabular-nums">{fmt(mf.baseTotalFgts)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">
+              Cálculo: {fmt(mf.fgtsRescisorio)} + {fmt(mf.fgtsPeriodoContrato)} = {fmt(mf.baseTotalFgts)}
+            </p>
+          </div>
+          <LinhaVerba
+            titulo="Multa de 40% do FGTS"
+            valor={mf.multa40}
+            formula={`${fmt(mf.baseTotalFgts)} × 40% = ${fmt(mf.multa40)}`}
+          />
+        </section>
+      )}
+
+      {/* Total Geral */}
+      <section className="border-t-2 border-foreground/30 pt-6">
+        <div className="flex items-baseline justify-between">
+          <span className="text-base font-bold text-foreground uppercase tracking-wide">Total Geral da Indenização</span>
+          <span className="text-2xl font-bold text-foreground tabular-nums">{fmt(result.totalFinal)}</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2 font-mono">
+          Composição: Indenização ({fmt(t1.total)}){t2 ? ` + Verbas Rescisórias (${fmt(t2.total)})` : ""}{mf ? ` + Multa 40% FGTS (${fmt(mf.multa40)})` : ""} = {fmt(result.totalFinal)}
+        </p>
+      </section>
 
       {/* Rodapé */}
-      <div className="text-center space-y-1 pt-2 pb-4">
+      <div className="text-center border-t border-foreground/20 pt-6 space-y-1">
         <p className="text-xs text-muted-foreground">
-          Documento gerado automaticamente pelo sistema para facilitar a conferência da memória de cálculo.
+          Documento gerado automaticamente para conferência da memória de cálculo.
         </p>
-        <p className="text-xs font-semibold text-foreground">Tabela elaborada por Dr. Augusto Tomazzoni Lubenow</p>
+        <p className="text-xs font-semibold text-foreground">Elaborado por Dr. Augusto Tomazzoni Lubenow</p>
         <p className="text-xs text-muted-foreground">OAB 133519</p>
       </div>
 
       {/* Action buttons */}
-      <div className="print:hidden space-y-3">
+      <div className="print:hidden space-y-3 pt-4">
         <Button onClick={handlePrint} className="w-full gap-2">
           <Printer className="w-4 h-4" />
           Imprimir memorial

@@ -92,12 +92,12 @@ const Index = () => {
     }
   }, [partoPrevisao, ultimoEditado, autoConcepcao]);
 
-  // Reset multa switch when pediuAConta is turned off
+  // Clear admissao when multa is turned off
   useEffect(() => {
-    if (!pediuAConta) {
-      setCalcularMultaFgts(false);
+    if (!calcularMultaFgts) {
+      setAdmissao("");
     }
-  }, [pediuAConta]);
+  }, [calcularMultaFgts]);
 
   const concepcaoDate = parseDateFromInput(concepcao);
   const demissaoDate = parseDateFromInput(demissao);
@@ -127,7 +127,8 @@ const Index = () => {
   const isStep2Valid =
     demissao !== "" &&
     concepcao !== "" &&
-    partoPrevisao !== "";
+    partoPrevisao !== "" &&
+    (!calcularMultaFgts || admissao !== "");
 
   const handleNext = () => {
     if (step === 1 && isStep1Valid) setStep(2);
@@ -266,12 +267,6 @@ const Index = () => {
               <CardTitle className="text-lg">Dados do Contrato e Gestação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="admissao">Data de admissão (opcional)</Label>
-                <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Usada para calcular o FGTS acumulado até a saída, quando preenchida.</p>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="demissao">Data de demissão *</Label>
                 <Input id="demissao" type="date" value={demissao} onChange={(e) => setDemissao(e.target.value)} />
@@ -421,25 +416,34 @@ const Index = () => {
                 </div>
               )}
 
-              {/* Multa FGTS 40% switch - only when pediuAConta */}
-              {pediuAConta && (
-                <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-primary" />
-                      <Label htmlFor="calcularMultaFgts" className="text-base font-semibold cursor-pointer">
-                        Calcular multa de FGTS de 40%?
-                      </Label>
-                    </div>
-                    <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
+              {/* Multa FGTS 40% switch */}
+              <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    <Label htmlFor="calcularMultaFgts" className="text-base font-semibold cursor-pointer">
+                      Calcular multa de FGTS de 40%?
+                    </Label>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {calcularMultaFgts
-                      ? admissao
-                        ? "A multa será calculada sobre o FGTS acumulado do contrato + FGTS do acerto"
-                        : "A multa será calculada apenas sobre o FGTS do acerto (preencha a data de admissão para incluir o FGTS do contrato)"
-                      : "Ative para incluir a multa de 40% do FGTS no cálculo"}
-                  </p>
+                  <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {calcularMultaFgts
+                    ? "Preencha a data de admissão abaixo para calcular a multa de 40% sobre o FGTS"
+                    : "Ative para incluir a multa de 40% do FGTS no cálculo"}
+                </p>
+              </div>
+
+              {/* Data de admissão - condicional */}
+              {calcularMultaFgts && (
+                <div className="space-y-2">
+                  <Label htmlFor="admissao">Data de admissão *</Label>
+                  <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
+                  {!admissao && (
+                    <p className="text-xs text-destructive">
+                      Obrigatório quando a multa de 40% está ativada.
+                    </p>
+                  )}
                 </div>
               )}
 
