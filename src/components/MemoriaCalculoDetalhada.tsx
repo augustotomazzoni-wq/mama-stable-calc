@@ -51,15 +51,12 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-2xl mx-auto">
+    <div className="space-y-8 animate-fade-in max-w-2xl mx-auto font-[Calibri,sans-serif]">
       {/* Cabeçalho */}
       <div className="text-center border-b-2 border-foreground/30 pb-6">
         <h1 className="text-lg font-bold text-foreground uppercase tracking-widest">
           Memorial de Cálculo Detalhado
         </h1>
-        <p className="text-xs text-muted-foreground mt-2">
-          Documento gerado para conferência judicial
-        </p>
       </div>
 
       {/* 1. Dados do Caso */}
@@ -221,9 +218,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
       {/* Rodapé */}
       <div className="text-center border-t border-foreground/20 pt-6 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          Documento gerado automaticamente para conferência da memória de cálculo.
-        </p>
         <p className="text-xs font-semibold text-foreground">Elaborado por Dr. Augusto Tomazzoni Lubenow</p>
         <p className="text-xs text-muted-foreground">OAB 133519</p>
       </div>
