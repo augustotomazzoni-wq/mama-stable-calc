@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Baby, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
@@ -114,25 +114,25 @@ const Index = () => {
     return mesesAtePartoAuto + 5;
   }, [mesesAtePartoAuto]);
 
-  const mesesAtual = editarMesesManual && mesesManual !== ""
-    ? Number(mesesManual)
-    : mesesEstabilidadeAuto;
+  const mesesAtual = editarMesesManual && mesesManual !== "" ?
+  Number(mesesManual) :
+  mesesEstabilidadeAuto;
 
   const isStep1Valid =
-    nome.trim() !== "" &&
-    nascimento !== "" &&
-    salario !== "" &&
-    Number(salario) > 0;
+  nome.trim() !== "" &&
+  nascimento !== "" &&
+  salario !== "" &&
+  Number(salario) > 0;
 
   const isStep2Valid =
-    demissao !== "" &&
-    concepcao !== "" &&
-    partoPrevisao !== "" &&
-    (!calcularMultaFgts || admissao !== "");
+  demissao !== "" &&
+  concepcao !== "" &&
+  partoPrevisao !== "" && (
+  !calcularMultaFgts || admissao !== "");
 
   const handleNext = () => {
-    if (step === 1 && isStep1Valid) setStep(2);
-    else if (step === 2 && isStep2Valid) {
+    if (step === 1 && isStep1Valid) setStep(2);else
+    if (step === 2 && isStep2Valid) {
       const input: CalcInput = {
         nome: nome.trim(),
         nascimento: parseDateFromInput(nascimento)!,
@@ -144,7 +144,7 @@ const Index = () => {
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
         empregadaDomestica,
         admissao: admissao ? parseDateFromInput(admissao) : null,
-        calcularMultaFgts,
+        calcularMultaFgts
       };
       setInputData(input);
       setResult(calculate(input));
@@ -187,7 +187,7 @@ const Index = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-3">
-            <Baby className="w-7 h-7 text-primary" />
+            
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">
             Cálculos Gestante
@@ -200,8 +200,8 @@ const Index = () => {
         <StepIndicator currentStep={step} steps={STEPS} />
 
         {/* Step 1 */}
-        {step === 1 && (
-          <Card className="animate-fade-in">
+        {step === 1 &&
+        <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle className="text-lg">Dados da Cliente</CardTitle>
             </CardHeader>
@@ -231,9 +231,9 @@ const Index = () => {
                   <Switch id="empregadaDomestica" checked={empregadaDomestica} onCheckedChange={setEmpregadaDomestica} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {empregadaDomestica
-                    ? "FGTS calculado à alíquota de 11,2% sobre a base (Salários + 13º + Férias+1/3)"
-                    : "FGTS calculado à alíquota de 8% sobre a base (Salários + 13º + Férias+1/3)"}
+                  {empregadaDomestica ?
+                "FGTS calculado à alíquota de 11,2% sobre a base (Salários + 13º + Férias+1/3)" :
+                "FGTS calculado à alíquota de 8% sobre a base (Salários + 13º + Férias+1/3)"}
                 </p>
               </div>
 
@@ -246,9 +246,9 @@ const Index = () => {
                   <Switch id="pediuAConta" checked={pediuAConta} onCheckedChange={setPediuAConta} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {pediuAConta
-                   ? "Tipo de rescisão: Pedido de demissão — verbas rescisórias completas serão calculadas"
-                    : "Tipo de rescisão: Dispensa — apenas indenização e FGTS serão calculados"}
+                  {pediuAConta ?
+                "Tipo de rescisão: Pedido de demissão — verbas rescisórias completas serão calculadas" :
+                "Tipo de rescisão: Dispensa — apenas indenização e FGTS serão calculados"}
                 </p>
               </div>
 
@@ -258,11 +258,11 @@ const Index = () => {
               </Button>
             </CardContent>
           </Card>
-        )}
+        }
 
         {/* Step 2 */}
-        {step === 2 && (
-          <Card className="animate-fade-in">
+        {step === 2 &&
+        <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle className="text-lg">Dados do Contrato e Gestação</CardTitle>
             </CardHeader>
@@ -275,18 +275,18 @@ const Index = () => {
               {/* Exam-based helper */}
               <div className="rounded-lg border-2 border-muted bg-muted/30 p-4 space-y-3">
                 <button
-                  type="button"
-                  className="flex items-center justify-between w-full text-left"
-                  onClick={() => setShowExameHelper(!showExameHelper)}
-                >
+                type="button"
+                className="flex items-center justify-between w-full text-left"
+                onClick={() => setShowExameHelper(!showExameHelper)}>
+                
                   <div className="flex items-center gap-2">
                     <Stethoscope className="w-4 h-4 text-primary" />
                     <span className="text-sm font-semibold">Calcular a partir do exame</span>
                   </div>
                   {showExameHelper ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </button>
-                {showExameHelper && (
-                  <div className="space-y-3 pt-1">
+                {showExameHelper &&
+              <div className="space-y-3 pt-1">
                     <p className="text-xs text-muted-foreground">
                       Informe a data do exame e a idade gestacional para calcular concepção e parto.
                     </p>
@@ -304,71 +304,71 @@ const Index = () => {
                         <Input id="exameDias" type="number" min="0" max="6" placeholder="0" value={exameDias} onChange={(e) => setExameDias(e.target.value)} />
                       </div>
                     </div>
-                    {exameConcepcaoDate && examePartoDate && (
-                      <div className="rounded-md bg-accent/40 p-3 space-y-1 text-sm">
+                    {exameConcepcaoDate && examePartoDate &&
+                <div className="rounded-md bg-accent/40 p-3 space-y-1 text-sm">
                         <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')}</p>
                         <p><span className="font-medium">Previsão do parto:</span> {examePartoDate.toLocaleDateString('pt-BR')}</p>
                         <Button type="button" size="sm" className="w-full mt-2 gap-1.5" onClick={aplicarExame}>
                           Usar estas datas
                         </Button>
                       </div>
-                    )}
+                }
                   </div>
-                )}
+              }
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="concepcao">Data da concepção *</Label>
                 <Input
-                  id="concepcao"
-                  type="date"
-                  value={concepcao}
-                  onChange={(e) => { setConcepcao(e.target.value); setUltimoEditado("concepcao"); }}
-                />
+                id="concepcao"
+                type="date"
+                value={concepcao}
+                onChange={(e) => {setConcepcao(e.target.value);setUltimoEditado("concepcao");}} />
+              
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-xs h-7 px-2"
-                  onClick={() => setAutoConcepcao(!autoConcepcao)}
-                >
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs h-7 px-2"
+                onClick={() => setAutoConcepcao(!autoConcepcao)}>
+                
                   {autoConcepcao ? <Link className="w-3 h-3" /> : <Unlink className="w-3 h-3" />}
                   {autoConcepcao ? "Cálculo automático ativo" : "Cálculo automático desativado"}
                 </Button>
               </div>
 
-              {showWarning && (
-                <Alert variant="destructive" className="bg-warning/10 border-warning/30 text-warning">
+              {showWarning &&
+            <Alert variant="destructive" className="bg-warning/10 border-warning/30 text-warning">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
                     A concepção é posterior à demissão — confira os dados.
                   </AlertDescription>
                 </Alert>
-              )}
+            }
 
               <div className="space-y-2">
                 <Label htmlFor="parto">Data do parto / previsão *</Label>
                 <Input
-                  id="parto"
-                  type="date"
-                  value={partoPrevisao}
-                  onChange={(e) => { setPartoPrevisao(e.target.value); setUltimoEditado("parto"); }}
-                />
+                id="parto"
+                type="date"
+                value={partoPrevisao}
+                onChange={(e) => {setPartoPrevisao(e.target.value);setUltimoEditado("parto");}} />
+              
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-xs h-7 px-2"
-                  onClick={() => setAutoParto(!autoParto)}
-                >
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs h-7 px-2"
+                onClick={() => setAutoParto(!autoParto)}>
+                
                   {autoParto ? <Link className="w-3 h-3" /> : <Unlink className="w-3 h-3" />}
                   {autoParto ? "Cálculo automático ativo" : "Cálculo automático desativado"}
                 </Button>
               </div>
 
               {/* Stability months display */}
-              {mesesEstabilidadeAuto !== null && (
-                <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+              {mesesEstabilidadeAuto !== null &&
+            <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" />
                     <span className="text-base font-semibold">
@@ -378,11 +378,11 @@ const Index = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Cálculo automático: {mesesEstabilidadeAuto} meses
-                    {mesesAtePartoAuto !== null && (
-                      <span className="ml-1">
+                    {mesesAtePartoAuto !== null &&
+                <span className="ml-1">
                         ({mesesAtePartoAuto} {mesesAtePartoAuto === 1 ? "mês" : "meses"} até o parto + 5 meses fixos)
                       </span>
-                    )}
+                }
                   </p>
 
                   <div className="flex items-center justify-between pt-1">
@@ -390,31 +390,31 @@ const Index = () => {
                       Editar tempo manualmente
                     </Label>
                     <Switch
-                      id="editarMeses"
-                      checked={editarMesesManual}
-                      onCheckedChange={(checked) => {
-                        setEditarMesesManual(checked);
-                        if (!checked) setMesesManual("");
-                      }}
-                    />
+                  id="editarMeses"
+                  checked={editarMesesManual}
+                  onCheckedChange={(checked) => {
+                    setEditarMesesManual(checked);
+                    if (!checked) setMesesManual("");
+                  }} />
+                
                   </div>
 
-                  {editarMesesManual && (
-                    <div className="space-y-1">
+                  {editarMesesManual &&
+              <div className="space-y-1">
                       <Label htmlFor="mesesManual" className="text-sm">Meses de estabilidade</Label>
                       <Input
-                        id="mesesManual"
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder={String(mesesEstabilidadeAuto)}
-                        value={mesesManual}
-                        onChange={(e) => setMesesManual(e.target.value)}
-                      />
+                  id="mesesManual"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={String(mesesEstabilidadeAuto)}
+                  value={mesesManual}
+                  onChange={(e) => setMesesManual(e.target.value)} />
+                
                     </div>
-                  )}
+              }
                 </div>
-              )}
+            }
 
               {/* Multa FGTS 40% switch */}
               <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
@@ -428,24 +428,24 @@ const Index = () => {
                   <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {calcularMultaFgts
-                    ? "Preencha a data de admissão abaixo para calcular a multa de 40% sobre o FGTS"
-                    : "Ative para incluir a multa de 40% do FGTS no cálculo"}
+                  {calcularMultaFgts ?
+                "Preencha a data de admissão abaixo para calcular a multa de 40% sobre o FGTS" :
+                "Ative para incluir a multa de 40% do FGTS no cálculo"}
                 </p>
               </div>
 
               {/* Data de admissão - condicional */}
-              {calcularMultaFgts && (
-                <div className="space-y-2">
+              {calcularMultaFgts &&
+            <div className="space-y-2">
                   <Label htmlFor="admissao">Data de admissão *</Label>
                   <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
-                  {!admissao && (
-                    <p className="text-xs text-destructive">
+                  {!admissao &&
+              <p className="text-xs text-destructive">
                       Obrigatório quando a multa de 40% está ativada.
                     </p>
-                  )}
+              }
                 </div>
-              )}
+            }
 
               <div className="flex gap-3 mt-2">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1 gap-2">
@@ -459,29 +459,29 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
-        )}
+        }
 
         {/* Step 3 */}
         {step === 3 && result && inputData && (
-          showMemoria ? (
-            <MemoriaCalculoDetalhada
-              input={inputData}
-              result={result}
-              onClose={() => setShowMemoria(false)}
-            />
-          ) : (
-            <ResultCard
-              input={inputData}
-              result={result}
-              onReset={handleReset}
-              onBack={() => setStep(2)}
-              onOpenMemoria={() => setShowMemoria(true)}
-            />
-          )
-        )}
+        showMemoria ?
+        <MemoriaCalculoDetalhada
+          input={inputData}
+          result={result}
+          onClose={() => setShowMemoria(false)} /> :
+
+
+        <ResultCard
+          input={inputData}
+          result={result}
+          onReset={handleReset}
+          onBack={() => setStep(2)}
+          onOpenMemoria={() => setShowMemoria(true)} />)
+
+
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default Index;
