@@ -11,7 +11,7 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   // ===== Aba Parametros =====
   const parametros: (string | number)[][] = [
     ['Parâmetro', 'Valor'],
-    ['Nome da cliente', input.nome],
+    ['Nome da reclamante', input.nome],
     ['Data de nascimento', formatDateBR(input.nascimento)],
     ['Salário mensal', sal],
     ['Data de admissão', input.admissao ? formatDateBR(input.admissao) : 'Não informada'],
