@@ -144,9 +144,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
             <span className="text-muted-foreground">Meses de estabilidade</span>
             <span className="font-medium">
               {result.mesesEstabilidade} meses
-              <span className="text-xs text-muted-foreground ml-1">
-                ({result.mesesManual ? "Manual" : "Automático"})
-              </span>
             </span>
           </div>
         </CardContent>
