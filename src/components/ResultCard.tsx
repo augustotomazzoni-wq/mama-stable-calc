@@ -27,7 +27,7 @@ Demissão: ${formatDateBR(input.demissao)}
 Concepção: ${formatDateBR(input.concepcao)}
 Previsão do parto: ${formatDateBR(result.previsaoParto)}
 Estabilidade até: ${formatDateBR(result.fimEstabilidade)}
-Período de estabilidade: ${result.mesesEstabilidade} meses (${result.mesesManual ? "Manual" : "Automático"})
+Período de estabilidade: ${result.mesesEstabilidade} meses
 Tipo de rescisão: ${result.tipoRescisao}
 
 Cálculo de Indenização:
@@ -144,9 +144,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
             <span className="text-muted-foreground">Meses de estabilidade</span>
             <span className="font-medium">
               {result.mesesEstabilidade} meses
-              <span className="text-xs text-muted-foreground ml-1">
-                ({result.mesesManual ? "Manual" : "Automático"})
-              </span>
             </span>
           </div>
         </CardContent>
