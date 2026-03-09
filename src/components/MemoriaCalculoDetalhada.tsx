@@ -65,7 +65,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           1. Dados do Caso
         </h2>
         <div className="grid grid-cols-[1fr_1fr] gap-x-8 gap-y-1.5 text-sm">
-          <span className="text-muted-foreground">Nome da cliente</span>
+          <span className="text-muted-foreground">Nome da reclamante</span>
           <span className="font-medium text-foreground">{input.nome}</span>
 
           <span className="text-muted-foreground">Data de nascimento</span>
