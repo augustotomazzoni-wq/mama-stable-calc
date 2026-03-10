@@ -376,13 +376,11 @@ const Index = () => {
                     <span className="text-base font-semibold">
                       Tempo de estabilidade: {mesesAtual ?? 0} meses
                     </span>
-                    {editarMesesManual && <span className="text-xs text-muted-foreground">(manual)</span>}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Cálculo automático: {mesesEstabilidadeAuto} meses
                     {mesesAtePartoAuto !== null &&
-                <span className="ml-1">
-                        ({mesesAtePartoAuto} {mesesAtePartoAuto === 1 ? "mês" : "meses"} até o parto + 5 meses fixos)
+                <span>
+                        {mesesAtePartoAuto} {mesesAtePartoAuto === 1 ? "mês" : "meses"} até o parto + 5 meses fixos = {mesesEstabilidadeAuto} meses
                       </span>
                 }
                   </p>
