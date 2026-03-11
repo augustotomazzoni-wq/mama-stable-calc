@@ -290,6 +290,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardContent>
       </Card>
 
+      {/* Cálculo da Concepção */}
+      {input.concepcaoInfo && (
+        <ConcepcaoCalculo info={input.concepcaoInfo} />
+      )}
+
+
       {/* Print footer */}
       <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
         <p className="text-sm font-semibold text-foreground">Tabela elaborada por Dr. Augusto Tomazzoni Lubenow</p>

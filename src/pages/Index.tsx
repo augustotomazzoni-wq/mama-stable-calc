@@ -134,6 +134,35 @@ const Index = () => {
   const handleNext = () => {
     if (step === 1 && isStep1Valid) setStep(2);else
     if (step === 2 && isStep2Valid) {
+      // Build concepcao info
+      let concepcaoInfo: ConcepcaoInfo;
+      const exameDataParsed = parseDateFromInput(exameData);
+      if (exameDataParsed && exameSemanas !== "" && Number(exameSemanas) > 0) {
+        const sem = Number(exameSemanas);
+        const dias = Number(exameDias) || 0;
+        const totalDias = sem * 7 + dias;
+        const dumEstimada = addDays(exameDataParsed, -totalDias);
+        const concepcaoEst = addDays(dumEstimada, 14);
+        concepcaoInfo = {
+          metodo: 'exame',
+          dataExame: exameDataParsed,
+          semanasExame: sem,
+          diasExame: dias,
+          idadeGestacionalDias: totalDias,
+          dumEstimada,
+          concepcaoEstimada: concepcaoEst,
+        };
+      } else if (partoPrevisao) {
+        const pDate = parseDateFromInput(partoPrevisao)!;
+        concepcaoInfo = {
+          metodo: 'dpp',
+          dpp: pDate,
+          concepcaoEstimada: addDays(pDate, -266),
+        };
+      } else {
+        concepcaoInfo = { metodo: 'insuficiente' };
+      }
+
       const input: CalcInput = {
         nome: nome.trim(),
         nascimento: parseDateFromInput(nascimento)!,
@@ -145,7 +174,8 @@ const Index = () => {
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
         empregadaDomestica,
         admissao: admissao ? parseDateFromInput(admissao) : null,
-        calcularMultaFgts
+        calcularMultaFgts,
+        concepcaoInfo,
       };
       setInputData(input);
       setResult(calculate(input));
