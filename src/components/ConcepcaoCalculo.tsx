@@ -101,6 +101,21 @@ const ConcepcaoCalculo = ({ info }: Props) => {
             <strong>Fundamento jurídico:</strong> No Direito do Trabalho, a proteção da gestante considera relevante a existência da gravidez no curso do vínculo de emprego, ainda que a confirmação formal ocorra posteriormente. Por isso, a demonstração cronológica da gestação pode ser útil para análise do caso concreto.
           </p>
         </div>
+
+        {/* Glossário de siglas */}
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Glossário de siglas e termos</p>
+          <dl className="text-xs text-muted-foreground space-y-1.5">
+            <div><dt className="inline font-medium text-foreground">DUM</dt> <dd className="inline">— Data da Última Menstruação.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Idade gestacional</dt> <dd className="inline">— tempo da gravidez contado, em regra, desde a DUM.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Concepção</dt> <dd className="inline">— momento estimado da fecundação.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Data estimada da concepção</dt> <dd className="inline">— previsão aproximada do dia em que a gravidez começou.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Ultrassom obstétrico</dt> <dd className="inline">— exame usado para avaliar a gestação e estimar sua idade.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Semanas e dias gestacionais</dt> <dd className="inline">— forma como a gravidez é medida no exame.</dd></div>
+            <div><dt className="inline font-medium text-foreground">DPP</dt> <dd className="inline">— Data Provável do Parto.</dd></div>
+            <div><dt className="inline font-medium text-foreground">Estimativa cronológica</dt> <dd className="inline">— cálculo aproximado baseado em datas e parâmetros médicos.</dd></div>
+          </dl>
+        </div>
       </CardContent>
     </Card>
   );
