@@ -10,6 +10,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stetho
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
+import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
 import Login from "./Login";
