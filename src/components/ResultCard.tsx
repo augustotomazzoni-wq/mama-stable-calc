@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import ConcepcaoCalculo from "./ConcepcaoCalculo";
+import { Baby } from "lucide-react";
 
 interface ResultCardProps {
   input: CalcInput;
