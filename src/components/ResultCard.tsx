@@ -305,6 +305,15 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </Button>
       </div>
 
+      {input.concepcaoInfo && (
+        <div className="pt-0 print:hidden">
+          <Button onClick={onOpenConcepcao} className="w-full gap-2">
+            <Baby className="w-4 h-4" />
+            Visualizar cálculo da concepção
+          </Button>
+        </div>
+      )}
+
       <div className="pt-0 print:hidden">
         <Button
           onClick={() => {
