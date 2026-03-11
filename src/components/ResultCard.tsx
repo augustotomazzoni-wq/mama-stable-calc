@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import ConcepcaoCalculo from "./ConcepcaoCalculo";
 
 interface ResultCardProps {
   input: CalcInput;
@@ -288,6 +289,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           <p className="text-3xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
         </CardContent>
       </Card>
+
+      {/* Cálculo da Concepção */}
+      {input.concepcaoInfo && (
+        <ConcepcaoCalculo info={input.concepcaoInfo} />
+      )}
+
 
       {/* Print footer */}
       <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
