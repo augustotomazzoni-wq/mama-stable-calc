@@ -56,7 +56,8 @@ const Index = () => {
     if (!eDate) return null;
     const totalDias = Number(exameSemanas) * 7 + (Number(exameDias) || 0);
     if (totalDias <= 0) return null;
-    return addDays(eDate, -totalDias);
+    const dumEstimada = addDays(eDate, -totalDias);
+    return addDays(dumEstimada, 14); // DUM + 14 = concepção estimada
   }, [exameData, exameSemanas, exameDias]);
 
   const examePartoDate = useMemo(() => {
