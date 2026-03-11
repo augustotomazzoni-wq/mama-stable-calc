@@ -1,5 +1,16 @@
 import { addDays, addMonthsExcelLike, ceilMonthsBetween } from './dateUtils';
 
+export interface ConcepcaoInfo {
+  metodo: 'exame' | 'dpp' | 'dum' | 'insuficiente';
+  dataExame?: Date;
+  semanasExame?: number;
+  diasExame?: number;
+  idadeGestacionalDias?: number;
+  dumEstimada?: Date;
+  concepcaoEstimada?: Date;
+  dpp?: Date;
+}
+
 export interface CalcInput {
   nome: string;
   nascimento: Date;
@@ -12,6 +23,7 @@ export interface CalcInput {
   empregadaDomestica: boolean;
   admissao: Date | null;
   calcularMultaFgts: boolean;
+  concepcaoInfo?: ConcepcaoInfo;
 }
 
 export interface Tabela1 {
