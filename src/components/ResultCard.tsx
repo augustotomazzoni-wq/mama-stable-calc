@@ -13,6 +13,7 @@ interface ResultCardProps {
   onReset: () => void;
   onBack: () => void;
   onOpenMemoria: () => void;
+  onOpenConcepcao: () => void;
 }
 
 const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria }: ResultCardProps) => {
