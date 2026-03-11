@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import ConcepcaoCalculo from "./ConcepcaoCalculo";
+import { Baby } from "lucide-react";
 
 interface ResultCardProps {
   input: CalcInput;
@@ -13,9 +13,10 @@ interface ResultCardProps {
   onReset: () => void;
   onBack: () => void;
   onOpenMemoria: () => void;
+  onOpenConcepcao: () => void;
 }
 
-const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria }: ResultCardProps) => {
+const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConcepcao }: ResultCardProps) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
@@ -290,12 +291,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardContent>
       </Card>
 
-      {/* Cálculo da Concepção */}
-      {input.concepcaoInfo && (
-        <ConcepcaoCalculo info={input.concepcaoInfo} />
-      )}
-
-
       {/* Print footer */}
       <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
         <p className="text-sm font-semibold text-foreground">Tabela elaborada por Dr. Augusto Tomazzoni Lubenow</p>
@@ -309,6 +304,15 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           Gerar memorial de cálculo detalhado
         </Button>
       </div>
+
+      {input.concepcaoInfo && (
+        <div className="pt-0 print:hidden">
+          <Button onClick={onOpenConcepcao} className="w-full gap-2">
+            <Baby className="w-4 h-4" />
+            Visualizar cálculo da concepção
+          </Button>
+        </div>
+      )}
 
       <div className="pt-0 print:hidden">
         <Button

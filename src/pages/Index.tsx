@@ -10,6 +10,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stetho
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
+import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
 import Login from "./Login";
@@ -20,6 +21,7 @@ const Index = () => {
   const [autenticado, setAutenticado] = useState(false);
   const [step, setStep] = useState(1);
   const [showMemoria, setShowMemoria] = useState(false);
+  const [showConcepcao, setShowConcepcao] = useState(false);
 
   // Step 1
   const [nome, setNome] = useState("");
@@ -500,16 +502,17 @@ const Index = () => {
           input={inputData}
           result={result}
           onClose={() => setShowMemoria(false)} /> :
-
-
+        showConcepcao ?
+        <ConcepcaoCalculoPage
+          input={inputData}
+          onClose={() => setShowConcepcao(false)} /> :
         <ResultCard
           input={inputData}
           result={result}
           onReset={handleReset}
           onBack={() => setStep(2)}
-          onOpenMemoria={() => setShowMemoria(true)} />)
-
-
+          onOpenMemoria={() => setShowMemoria(true)}
+          onOpenConcepcao={() => setShowConcepcao(true)} />)
         }
       </div>
     </div>);
