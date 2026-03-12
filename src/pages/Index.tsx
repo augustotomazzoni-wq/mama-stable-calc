@@ -508,13 +508,19 @@ const Index = () => {
         <ConcepcaoCalculoPage
           input={inputData}
           onClose={() => setShowConcepcao(false)} /> :
+        showResumo ?
+        <ResumoCalculos
+          input={inputData}
+          result={result}
+          onClose={() => setShowResumo(false)} /> :
         <ResultCard
           input={inputData}
           result={result}
           onReset={handleReset}
           onBack={() => setStep(2)}
           onOpenMemoria={() => setShowMemoria(true)}
-          onOpenConcepcao={() => setShowConcepcao(true)} />)
+          onOpenConcepcao={() => setShowConcepcao(true)}
+          onOpenResumo={() => setShowResumo(true)} />)
         }
       </div>
     </div>);
