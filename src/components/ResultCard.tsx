@@ -299,10 +299,14 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
       </div>
 
       {/* Actions */}
-      <div className="pt-2 print:hidden">
+      <div className="pt-2 print:hidden space-y-3">
         <Button onClick={onOpenMemoria} className="w-full gap-2">
           <BookOpen className="w-4 h-4" />
           Gerar memorial de cálculo detalhado
+        </Button>
+        <Button onClick={onOpenResumo} variant="outline" className="w-full gap-2">
+          <ClipboardList className="w-4 h-4" />
+          Gerar resumo de cálculos
         </Button>
       </div>
 
