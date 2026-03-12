@@ -11,6 +11,7 @@ import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
+import ResumoCalculos from "@/components/ResumoCalculos";
 import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
 import Login from "./Login";
@@ -22,6 +23,7 @@ const Index = () => {
   const [step, setStep] = useState(1);
   const [showMemoria, setShowMemoria] = useState(false);
   const [showConcepcao, setShowConcepcao] = useState(false);
+  const [showResumo, setShowResumo] = useState(false);
 
   // Step 1
   const [nome, setNome] = useState("");
@@ -506,13 +508,19 @@ const Index = () => {
         <ConcepcaoCalculoPage
           input={inputData}
           onClose={() => setShowConcepcao(false)} /> :
+        showResumo ?
+        <ResumoCalculos
+          input={inputData}
+          result={result}
+          onClose={() => setShowResumo(false)} /> :
         <ResultCard
           input={inputData}
           result={result}
           onReset={handleReset}
           onBack={() => setStep(2)}
           onOpenMemoria={() => setShowMemoria(true)}
-          onOpenConcepcao={() => setShowConcepcao(true)} />)
+          onOpenConcepcao={() => setShowConcepcao(true)}
+          onOpenResumo={() => setShowResumo(true)} />)
         }
       </div>
     </div>);

@@ -3,7 +3,7 @@ import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
 
@@ -14,9 +14,10 @@ interface ResultCardProps {
   onBack: () => void;
   onOpenMemoria: () => void;
   onOpenConcepcao: () => void;
+  onOpenResumo: () => void;
 }
 
-const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConcepcao }: ResultCardProps) => {
+const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConcepcao, onOpenResumo }: ResultCardProps) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
@@ -298,10 +299,14 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
       </div>
 
       {/* Actions */}
-      <div className="pt-2 print:hidden">
+      <div className="pt-2 print:hidden space-y-3">
         <Button onClick={onOpenMemoria} className="w-full gap-2">
           <BookOpen className="w-4 h-4" />
           Gerar memorial de cálculo detalhado
+        </Button>
+        <Button onClick={onOpenResumo} variant="outline" className="w-full gap-2">
+          <ClipboardList className="w-4 h-4" />
+          Gerar resumo de cálculos
         </Button>
       </div>
 

@@ -221,11 +221,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
               Cálculo: {fmt(mf.fgtsRescisorio)} + {fmt(mf.fgtsPeriodoContrato)} = {fmt(mf.baseTotalFgts)}
             </p>
           </div>
-          <LinhaVerba
-            titulo="Multa de 40% do FGTS"
-            valor={mf.multa40}
-            formula={`${fmt(mf.baseTotalFgts)} × 40% = ${fmt(mf.multa40)}`}
-          />
+          <SubtotalLinha titulo="Multa de 40% do FGTS" valor={mf.multa40} />
         </section>
       )}
 
