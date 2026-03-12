@@ -14,9 +14,10 @@ interface ResultCardProps {
   onBack: () => void;
   onOpenMemoria: () => void;
   onOpenConcepcao: () => void;
+  onOpenResumo: () => void;
 }
 
-const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConcepcao }: ResultCardProps) => {
+const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConcepcao, onOpenResumo }: ResultCardProps) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
