@@ -3,7 +3,7 @@ import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
 
