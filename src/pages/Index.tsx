@@ -23,6 +23,7 @@ const Index = () => {
   const [step, setStep] = useState(1);
   const [showMemoria, setShowMemoria] = useState(false);
   const [showConcepcao, setShowConcepcao] = useState(false);
+  const [showResumo, setShowResumo] = useState(false);
 
   // Step 1
   const [nome, setNome] = useState("");
