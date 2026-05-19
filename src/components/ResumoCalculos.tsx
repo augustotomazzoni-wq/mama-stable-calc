@@ -90,6 +90,17 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
         </div>
       </section>
 
+      {/* Valor Total da Ação */}
+      <section className="border-t-2 border-foreground/30 pt-6">
+        <div className="py-4">
+          <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">Valor Total da Ação</p>
+          <p className="text-lg text-foreground">
+            <span className="font-bold tabular-nums">{formatBRL(valorTotalDaAcao)}</span>
+            <span className="text-muted-foreground text-sm"> — {valorPorExtenso(valorTotalDaAcao)}</span>
+          </p>
+        </div>
+      </section>
+
       {/* Observação */}
       {(verbasRescisorias > 0 || multa477 > 0) && (
         <section className="border-t border-foreground/10 pt-6">
