@@ -40,6 +40,9 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   // 5. Honorários de Sucumbência (15%)
   const honorarios = valorTotal * 0.15;
 
+  // 6. Valor Total da Ação = Valor Total + Honorários
+  const valorTotalDaAcao = valorTotal + honorarios;
+
   // Observação: total das verbas rescisórias
   const totalVerbasRescisoriasObs = verbasRescisorias + multa477;
 
