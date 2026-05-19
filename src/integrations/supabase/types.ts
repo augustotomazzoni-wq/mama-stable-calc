@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      consultas_calculo: {
+        Row: {
+          created_at: string
+          dados_informados: Json
+          data_nascimento: string | null
+          deleted_at: string | null
+          excluido: boolean
+          id: string
+          memoria_calculo_completa: Json
+          nome_completo: string
+          resultado_resumido: Json
+          status_cliente: string
+          updated_at: string
+          user_id: string | null
+          valor_total_indenizacao: number
+        }
+        Insert: {
+          created_at?: string
+          dados_informados?: Json
+          data_nascimento?: string | null
+          deleted_at?: string | null
+          excluido?: boolean
+          id?: string
+          memoria_calculo_completa?: Json
+          nome_completo: string
+          resultado_resumido?: Json
+          status_cliente?: string
+          updated_at?: string
+          user_id?: string | null
+          valor_total_indenizacao?: number
+        }
+        Update: {
+          created_at?: string
+          dados_informados?: Json
+          data_nascimento?: string | null
+          deleted_at?: string | null
+          excluido?: boolean
+          id?: string
+          memoria_calculo_completa?: Json
+          nome_completo?: string
+          resultado_resumido?: Json
+          status_cliente?: string
+          updated_at?: string
+          user_id?: string | null
+          valor_total_indenizacao?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
