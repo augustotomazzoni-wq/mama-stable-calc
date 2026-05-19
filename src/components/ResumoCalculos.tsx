@@ -43,6 +43,9 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   // 6. Total do cálculo de todas as verbas rescisórias
   const totalVerbasRescisoriasObs = verbasRescisorias + multa477;
 
+  // 7. Valor da Ação = Valor Total + Honorários
+  const valorDaAcao = valorTotal + honorarios;
+
   const handlePrint = () => window.print();
 
   return (
@@ -107,6 +110,20 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
           </div>
         </section>
       )}
+
+      {/* Valor da Ação */}
+      <section className="border-t-2 border-foreground/30 pt-6">
+        <div className="py-4">
+          <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">Valor da Ação</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            Valor Total ({formatBRL(valorTotal)}) + Honorários de Sucumbência ({formatBRL(honorarios)})
+          </p>
+          <p className="text-lg text-foreground">
+            <span className="font-bold tabular-nums">{formatBRL(valorDaAcao)}</span>
+            <span className="text-muted-foreground text-sm"> — {valorPorExtenso(valorDaAcao)}</span>
+          </p>
+        </div>
+      </section>
 
       {/* Rodapé */}
       <div className="text-center border-t border-foreground/20 pt-6 space-y-1">
