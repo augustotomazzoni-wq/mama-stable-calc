@@ -5,23 +5,50 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Baby, Lock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
-  const [usuario, setUsuario] = useState("");
+  const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [modo, setModo] = useState<"login" | "signup">("login");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (usuario.trim().toLowerCase() === "admin" && senha === "123456") {
-      setErro(false);
-      onLogin();
-    } else {
-      setErro(true);
+    setErro(null);
+    setLoading(true);
+    try {
+      if (modo === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: senha,
+        });
+        if (error) throw error;
+        onLogin();
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: senha,
+          options: { emailRedirectTo: window.location.origin },
+        });
+        if (error) throw error;
+        // Auto-confirm está ativo → tenta entrar imediatamente
+        const { error: e2 } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: senha,
+        });
+        if (e2) throw e2;
+        onLogin();
+      }
+    } catch (err: any) {
+      setErro(err?.message ?? "Erro ao autenticar.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,7 +63,7 @@ const Login = ({ onLogin }: LoginProps) => {
             Cálculos Gestante
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Faça login para acessar a calculadora
+            {modo === "login" ? "Faça login para acessar a calculadora" : "Crie uma conta do escritório"}
           </p>
         </div>
 
@@ -50,15 +77,16 @@ const Login = ({ onLogin }: LoginProps) => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="usuario">Usuário</Label>
+                <Label htmlFor="email">E-mail</Label>
                 <Input
-                  id="usuario"
-                  placeholder="Digite o usuário"
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
                   autoCapitalize="none"
                   autoCorrect="off"
-                  autoComplete="username"
-                  value={usuario}
-                  onChange={(e) => { setUsuario(e.target.value); setErro(false); }}
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setErro(null); }}
                 />
               </div>
               <div className="space-y-2">
@@ -66,23 +94,31 @@ const Login = ({ onLogin }: LoginProps) => {
                 <Input
                   id="senha"
                   type="password"
-                  placeholder="Digite a senha"
-                  autoComplete="current-password"
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete={modo === "login" ? "current-password" : "new-password"}
                   value={senha}
-                  onChange={(e) => { setSenha(e.target.value); setErro(false); }}
+                  onChange={(e) => { setSenha(e.target.value); setErro(null); }}
                 />
               </div>
 
               {erro && (
                 <Alert variant="destructive">
                   <AlertDescription>
-                    Usuário ou senha incorretos.
+                    {erro}
                   </AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full">
-                Entrar
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Aguarde..." : modo === "login" ? "Entrar" : "Criar conta e entrar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs"
+                onClick={() => { setModo(modo === "login" ? "signup" : "login"); setErro(null); }}
+              >
+                {modo === "login" ? "Criar nova conta do escritório" : "Já tenho conta — fazer login"}
               </Button>
             </form>
           </CardContent>
