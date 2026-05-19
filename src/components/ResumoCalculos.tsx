@@ -40,6 +40,9 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   // 5. Honorários de Sucumbência (15%)
   const honorarios = valorTotal * 0.15;
 
+  // 6. Valor Total da Ação = Valor Total + Honorários
+  const valorTotalDaAcao = valorTotal + honorarios;
+
   // Observação: total das verbas rescisórias
   const totalVerbasRescisoriasObs = verbasRescisorias + multa477;
 
@@ -86,6 +89,17 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
           <p className="text-sm text-foreground">
             <span className="font-semibold tabular-nums">{formatBRL(honorarios)}</span>
             <span className="text-muted-foreground"> — {valorPorExtenso(honorarios)}</span>
+          </p>
+        </div>
+      </section>
+
+      {/* Valor Total da Ação */}
+      <section className="border-t-2 border-foreground/30 pt-6">
+        <div className="py-4">
+          <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">Valor Total da Ação</p>
+          <p className="text-lg text-foreground">
+            <span className="font-bold tabular-nums">{formatBRL(valorTotalDaAcao)}</span>
+            <span className="text-muted-foreground text-sm"> — {valorPorExtenso(valorTotalDaAcao)}</span>
           </p>
         </div>
       </section>
