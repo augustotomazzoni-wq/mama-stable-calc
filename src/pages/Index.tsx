@@ -1,4 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { serializeInput, serializeResult, buildResumoJson } from "@/lib/calcSerializer";
+import { toast } from "sonner";
 import { ConcepcaoInfo } from "@/lib/calculator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield, Search, LogOut } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
@@ -19,7 +23,26 @@ import Login from "./Login";
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 
 const Index = () => {
+  const navigate = useNavigate();
   const [autenticado, setAutenticado] = useState(false);
+  const [checandoSessao, setChecandoSessao] = useState(true);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setAutenticado(!!session);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setAutenticado(!!data.session);
+      setChecandoSessao(false);
+    });
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setAutenticado(false);
+  };
+
   const [step, setStep] = useState(1);
   const [showMemoria, setShowMemoria] = useState(false);
   const [showConcepcao, setShowConcepcao] = useState(false);
@@ -182,10 +205,30 @@ const Index = () => {
         calcularMultaFgts,
         concepcaoInfo,
       };
+      const r = calculate(input);
       setInputData(input);
-      setResult(calculate(input));
+      setResult(r);
       setStep(3);
       setShowMemoria(false);
+
+      // Auto-salvar no banco
+      (async () => {
+        const serialInput = serializeInput(input);
+        const serialResult = serializeResult(r);
+        const { error } = await supabase.from("consultas_calculo").insert({
+          nome_completo: input.nome,
+          data_nascimento: input.nascimento.toISOString().slice(0, 10),
+          valor_total_indenizacao: r.totalFinal,
+          dados_informados: serialInput as any,
+          resultado_resumido: buildResumoJson(input, r) as any,
+          memoria_calculo_completa: { input: serialInput, result: serialResult } as any,
+        });
+        if (error) {
+          toast.error("Não foi possível salvar o cálculo: " + error.message);
+        } else {
+          toast.success("Cálculo salvo no histórico.");
+        }
+      })();
     }
   };
 
@@ -213,6 +256,10 @@ const Index = () => {
     setShowMemoria(false);
   };
 
+  if (checandoSessao) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Carregando...</div>;
+  }
+
   if (!autenticado) {
     return <Login onLogin={() => setAutenticado(true)} />;
   }
@@ -231,6 +278,21 @@ const Index = () => {
           <p className="text-sm text-muted-foreground mt-1">
             Cálculo de indenização do período de estabilidade
           </p>
+          <div className="flex gap-2 justify-center mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate("/consultas")}
+            >
+              <Search className="w-4 h-4" />
+              Pesquisar cálculos já realizados
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" />
+              Sair
+            </Button>
+          </div>
         </div>
 
         <div className="print:hidden">
