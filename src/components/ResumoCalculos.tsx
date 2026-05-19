@@ -40,10 +40,7 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   // 5. Honorários de Sucumbência (15%)
   const honorarios = valorTotal * 0.15;
 
-  // 6. Valor Total da Ação = Valor Total + Honorários
-  const valorTotalDaAcao = valorTotal + honorarios;
-
-  // Observação: total das verbas rescisórias
+  // 6. Total do cálculo de todas as verbas rescisórias
   const totalVerbasRescisoriasObs = verbasRescisorias + multa477;
 
   const handlePrint = () => window.print();
@@ -93,30 +90,19 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
         </div>
       </section>
 
-      {/* Valor Total da Ação */}
-      <section className="border-t-2 border-foreground/30 pt-6">
-        <div className="py-4">
-          <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">Valor Total da Ação</p>
-          <p className="text-lg text-foreground">
-            <span className="font-bold tabular-nums">{formatBRL(valorTotalDaAcao)}</span>
-            <span className="text-muted-foreground text-sm"> — {valorPorExtenso(valorTotalDaAcao)}</span>
-          </p>
-        </div>
-      </section>
-
-      {/* Observação */}
+      {/* Total do cálculo de todas as verbas rescisórias */}
       {(verbasRescisorias > 0 || multa477 > 0) && (
-        <section className="border-t border-foreground/10 pt-6">
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            Observação
-          </h2>
-          <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm text-foreground">
-            <p className="font-medium">Total do cálculo de todas as verbas rescisórias:</p>
-            <p className="text-muted-foreground">
+        <section className="border-t-2 border-foreground/30 pt-6">
+          <div className="py-4">
+            <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">
+              Total do cálculo de todas as verbas rescisórias
+            </p>
+            <p className="text-xs text-muted-foreground mb-2">
               Cálculo das Verbas Rescisórias ({formatBRL(verbasRescisorias)}) + Multa Art. 477 ({formatBRL(multa477)})
             </p>
-            <p className="font-semibold mt-2">
-              = {formatBRL(totalVerbasRescisoriasObs)} — {valorPorExtenso(totalVerbasRescisoriasObs)}
+            <p className="text-lg text-foreground">
+              <span className="font-bold tabular-nums">{formatBRL(totalVerbasRescisoriasObs)}</span>
+              <span className="text-muted-foreground text-sm"> — {valorPorExtenso(totalVerbasRescisoriasObs)}</span>
             </p>
           </div>
         </section>
