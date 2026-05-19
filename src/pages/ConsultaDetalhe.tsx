@@ -33,9 +33,10 @@ const ConsultaDetalhe = () => {
         return;
       }
       try {
+        const mem = data.memoria_calculo_completa as any;
         setInput(deserializeInput(data.dados_informados));
-        setResult(deserializeResult(data.memoria_calculo_completa.result ?? data.memoria_calculo_completa));
-        setMemoriaJson(data.memoria_calculo_completa);
+        setResult(deserializeResult(mem?.result ?? mem));
+        setMemoriaJson(mem);
       } catch (e) {
         toast.error("Erro ao ler dados do cálculo.");
       }
