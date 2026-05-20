@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Baby, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import Logo from "@/components/Logo";
 
 interface LoginProps {
   onLogin: () => void;
@@ -62,9 +63,7 @@ const Login = ({ onLogin }: LoginProps) => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-3">
-            <Baby className="w-7 h-7 text-primary" />
-          </div>
+          <Logo size="lg" className="mx-auto mb-3" />
           <h1 className="text-2xl font-display font-bold text-foreground">
             Cálculos Gestante
           </h1>

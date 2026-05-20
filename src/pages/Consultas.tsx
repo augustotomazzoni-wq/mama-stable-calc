@@ -12,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Eye, UserCheck, Trash2, Search, ArrowUpDown, LogOut } from "lucide-react";
+import { ArrowLeft, Eye, UserCheck, UserX, Trash2, Search, ArrowUpDown, LogOut } from "lucide-react";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { toast } from "sonner";
+import Logo from "@/components/Logo";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,15 +84,15 @@ const Consultas = () => {
     return r;
   }, [rows, busca, dataIni, dataFim, statusFilter, ordemValorAsc]);
 
-  const marcarComoCliente = async (id: string) => {
+  const toggleCliente = async (id: string, statusAtual: string) => {
+    const novo = statusAtual === "Cliente" ? "Não contratou" : "Cliente";
     const { error } = await supabase
       .from("consultas_calculo")
-      .update({ status_cliente: "Cliente" })
+      .update({ status_cliente: novo })
       .eq("id", id);
-    if (error) {
-      toast.error("Erro: " + error.message);
-    } else {
-      toast.success("Marcado como cliente!");
+    if (error) toast.error("Erro: " + error.message);
+    else {
+      toast.success(novo === "Cliente" ? "Marcado como cliente!" : "Desmarcado como cliente.");
       carregar();
     }
   };
@@ -135,7 +136,10 @@ const Consultas = () => {
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
-          <h1 className="text-xl font-display font-bold">Cálculos realizados</h1>
+          <div className="flex flex-col items-center gap-1">
+            <Logo size="md" />
+            <h1 className="text-xl font-display font-bold">Cálculos realizados</h1>
+          </div>
           <Button variant="ghost" onClick={logout} className="gap-2">
             <LogOut className="w-4 h-4" />
             Sair
@@ -241,8 +245,17 @@ const Consultas = () => {
                         <Button size="sm" variant="outline" className="gap-1" onClick={() => navigate(`/consultas/${r.id}`)}>
                           <Eye className="w-3.5 h-3.5" /> Ver
                         </Button>
-                        <Button size="sm" variant="secondary" className="gap-1" onClick={() => marcarComoCliente(r.id)}>
-                          <UserCheck className="w-3.5 h-3.5" /> Cliente
+                        <Button
+                          size="sm"
+                          variant={r.status_cliente === "Cliente" ? "default" : "secondary"}
+                          className="gap-1"
+                          onClick={() => toggleCliente(r.id, r.status_cliente)}
+                        >
+                          {r.status_cliente === "Cliente" ? (
+                            <><UserX className="w-3.5 h-3.5" /> Desmarcar</>
+                          ) : (
+                            <><UserCheck className="w-3.5 h-3.5" /> Cliente</>
+                          )}
                         </Button>
                         <Button size="sm" variant="destructive" className="gap-1" onClick={() => setConfirmDel(r.id)}>
                           <Trash2 className="w-3.5 h-3.5" /> Excluir
