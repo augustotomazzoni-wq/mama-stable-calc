@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield, Search, LogOut } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
+import Logo from "@/components/Logo";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
 import ResumoCalculos from "@/components/ResumoCalculos";
@@ -269,9 +270,7 @@ const Index = () => {
       <div className="max-w-lg mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8 print:hidden">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-3">
-            
-          </div>
+          <Logo size="lg" className="mx-auto mb-3" />
           <h1 className="text-2xl font-display font-bold text-foreground">
             Cálculos Gestante
           </h1>

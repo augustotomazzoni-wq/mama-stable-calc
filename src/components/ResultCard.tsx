@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
+import Logo from "@/components/Logo";
 
 interface ResultCardProps {
   input: CalcInput;
@@ -80,6 +81,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
       {/* Hero result */}
       <Card className="border-2 border-primary/30 bg-accent/30">
         <CardContent className="pt-6 text-center space-y-2">
+          <Logo size="md" className="mx-auto mb-2" />
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Resultado da Simulação</p>
           <h2 className="text-2xl font-display font-bold text-foreground">{input.nome}</h2>
           <p className="text-sm text-muted-foreground">Nascimento: {formatDateBR(input.nascimento)}</p>
@@ -294,6 +296,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
 
       {/* Print footer */}
       <div className="hidden print:block mt-8 pt-4 border-t-2 border-primary/30 text-center">
+        <Logo size="md" className="mx-auto mb-2" />
         <p className="text-sm font-semibold text-foreground">Tabela elaborada por Dr. Augusto Tomazzoni Lubenow</p>
         <p className="text-sm text-muted-foreground">OAB 133519</p>
       </div>

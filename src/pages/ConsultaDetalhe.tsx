@@ -10,6 +10,7 @@ import { deserializeInput, deserializeResult } from "@/lib/calcSerializer";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import ResumoCalculos from "@/components/ResumoCalculos";
+import Logo from "@/components/Logo";
 
 const ConsultaDetalhe = () => {
   const { id } = useParams();
@@ -65,6 +66,7 @@ const ConsultaDetalhe = () => {
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
+          <Logo size="md" />
           <div className="flex gap-2">
             <Button size="sm" variant={view === "resultado" ? "default" : "outline"} onClick={() => setView("resultado")}>
               Resultado
