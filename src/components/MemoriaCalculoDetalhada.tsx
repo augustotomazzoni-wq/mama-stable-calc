@@ -4,6 +4,7 @@ import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Printer } from "lucide-react";
+import Logo from "@/components/Logo";
 
 interface Props {
   input: CalcInput;
@@ -110,6 +111,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
     <div className="space-y-8 animate-fade-in max-w-2xl mx-auto font-[Calibri,sans-serif]">
       {/* Cabeçalho */}
       <div className="text-center border-b-2 border-foreground/30 pb-6">
+        <Logo size="md" className="mx-auto mb-3" />
         <h1 className="text-lg font-bold text-foreground uppercase tracking-widest">
           Memorial de Cálculo Detalhado
         </h1>
