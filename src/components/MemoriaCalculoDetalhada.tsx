@@ -84,7 +84,9 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   // Build dados do caso items
   const dadosItems: DadoItem[] = [
     { key: "nome", label: "Nome da reclamante", value: input.nome },
-    { key: "nascimento", label: "Data de nascimento", value: formatDateBR(input.nascimento) },
+    ...(input.nascimento
+      ? [{ key: "nascimento", label: "Data de nascimento", value: formatDateBR(input.nascimento) }]
+      : []),
     ...(input.admissao
       ? [{ key: "admissao", label: "Data de admissão", value: formatDateBR(input.admissao) }]
       : []),

@@ -13,7 +13,7 @@ export interface ConcepcaoInfo {
 
 export interface CalcInput {
   nome: string;
-  nascimento: Date;
+  nascimento: Date | null;
   salario: number;
   demissao: Date;
   concepcao: Date;

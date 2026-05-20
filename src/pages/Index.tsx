@@ -150,7 +150,6 @@ const Index = () => {
 
   const isStep1Valid =
   nome.trim() !== "" &&
-  nascimento !== "" &&
   salario !== "" &&
   Number(salario) > 0;
 
@@ -194,7 +193,7 @@ const Index = () => {
 
       const input: CalcInput = {
         nome: nome.trim(),
-        nascimento: parseDateFromInput(nascimento)!,
+        nascimento: nascimento ? parseDateFromInput(nascimento) : null,
         salario: Number(salario),
         demissao: parseDateFromInput(demissao)!,
         concepcao: parseDateFromInput(concepcao)!,
@@ -218,7 +217,7 @@ const Index = () => {
         const serialResult = serializeResult(r);
         const { error } = await supabase.from("consultas_calculo").insert({
           nome_completo: input.nome,
-          data_nascimento: input.nascimento.toISOString().slice(0, 10),
+          data_nascimento: input.nascimento ? input.nascimento.toISOString().slice(0, 10) : null,
           valor_total_indenizacao: r.totalFinal,
           dados_informados: serialInput as any,
           resultado_resumido: buildResumoJson(input, r) as any,
@@ -310,7 +309,7 @@ const Index = () => {
                 <Input id="nome" placeholder="Maria da Silva" value={nome} onChange={(e) => setNome(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nascimento">Data de nascimento *</Label>
+                <Label htmlFor="nascimento">Data de nascimento</Label>
                 <Input id="nascimento" type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} />
               </div>
               <div className="space-y-2">

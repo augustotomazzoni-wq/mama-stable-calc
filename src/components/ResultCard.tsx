@@ -25,8 +25,7 @@ const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConce
   const aliquotaFgts = input.empregadaDomestica ? "11,2%" : "8%";
 
   let resumo = `Cliente: ${input.nome}
-Nascimento: ${formatDateBR(input.nascimento)}
-Salário: ${formatBRL(input.salario)}
+${input.nascimento ? `Nascimento: ${formatDateBR(input.nascimento)}\n` : ""}Salário: ${formatBRL(input.salario)}
 Demissão: ${formatDateBR(input.demissao)}
 Concepção: ${formatDateBR(input.concepcao)}
 Previsão do parto: ${formatDateBR(result.previsaoParto)}
@@ -84,7 +83,9 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           <Logo size="md" className="mx-auto mb-2" />
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Resultado da Simulação</p>
           <h2 className="text-2xl font-display font-bold text-foreground">{input.nome}</h2>
-          <p className="text-sm text-muted-foreground">Nascimento: {formatDateBR(input.nascimento)}</p>
+          {input.nascimento && (
+            <p className="text-sm text-muted-foreground">Nascimento: {formatDateBR(input.nascimento)}</p>
+          )}
           <p className="text-xs text-muted-foreground">{result.tipoRescisao}</p>
           <div className="pt-4">
             <p className="text-sm font-medium text-muted-foreground">Total da Indenização</p>
