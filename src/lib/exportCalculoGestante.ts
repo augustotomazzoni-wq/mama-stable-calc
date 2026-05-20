@@ -12,7 +12,7 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   const parametros: (string | number)[][] = [
     ['Parâmetro', 'Valor'],
     ['Nome da reclamante', input.nome],
-    ['Data de nascimento', formatDateBR(input.nascimento)],
+    ['Data de nascimento', input.nascimento ? formatDateBR(input.nascimento) : 'Não informada'],
     ['Salário mensal', sal],
     ['Data de admissão', input.admissao ? formatDateBR(input.admissao) : 'Não informada'],
     ['Data da demissão', formatDateBR(input.demissao)],
