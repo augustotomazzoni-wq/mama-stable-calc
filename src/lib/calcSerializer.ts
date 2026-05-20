@@ -12,7 +12,7 @@ function reviveDates<T extends Record<string, any>>(obj: T, keys: (keyof T)[]): 
 export function serializeInput(input: CalcInput) {
   return {
     ...input,
-    nascimento: input.nascimento.toISOString(),
+    nascimento: input.nascimento ? input.nascimento.toISOString() : null,
     demissao: input.demissao.toISOString(),
     concepcao: input.concepcao.toISOString(),
     partoPrevisao: input.partoPrevisao.toISOString(),
@@ -31,6 +31,7 @@ export function serializeInput(input: CalcInput) {
 
 export function deserializeInput(data: any): CalcInput {
   const i = reviveDates(data, ["nascimento", "demissao", "concepcao", "partoPrevisao", "admissao"]);
+  if (i.nascimento === null || i.nascimento === undefined) i.nascimento = null;
   if (i.concepcaoInfo) {
     i.concepcaoInfo = reviveDates(i.concepcaoInfo, [
       "dataExame",
