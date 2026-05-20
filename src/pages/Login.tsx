@@ -11,40 +11,46 @@ interface LoginProps {
   onLogin: () => void;
 }
 
+const SHARED_EMAIL = "escritorio@calculosgestante.local";
+const SHARED_PASSWORD = "CalcGestante#2026";
+
+async function ensureSharedSession() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session) return;
+  const { error } = await supabase.auth.signInWithPassword({
+    email: SHARED_EMAIL,
+    password: SHARED_PASSWORD,
+  });
+  if (!error) return;
+  const { error: signUpError } = await supabase.auth.signUp({
+    email: SHARED_EMAIL,
+    password: SHARED_PASSWORD,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (signUpError && !/registered/i.test(signUpError.message)) throw signUpError;
+  const { error: e2 } = await supabase.auth.signInWithPassword({
+    email: SHARED_EMAIL,
+    password: SHARED_PASSWORD,
+  });
+  if (e2) throw e2;
+}
+
 const Login = ({ onLogin }: LoginProps) => {
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [modo, setModo] = useState<"login" | "signup">("login");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
     setLoading(true);
     try {
-      if (modo === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: senha,
-        });
-        if (error) throw error;
-        onLogin();
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: senha,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        // Auto-confirm está ativo → tenta entrar imediatamente
-        const { error: e2 } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: senha,
-        });
-        if (e2) throw e2;
-        onLogin();
+      if (usuario.trim().toLowerCase() !== "admin" || senha !== "123456") {
+        throw new Error("Usuário ou senha inválidos.");
       }
+      await ensureSharedSession();
+      onLogin();
     } catch (err: any) {
       setErro(err?.message ?? "Erro ao autenticar.");
     } finally {
@@ -63,7 +69,7 @@ const Login = ({ onLogin }: LoginProps) => {
             Cálculos Gestante
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {modo === "login" ? "Faça login para acessar a calculadora" : "Crie uma conta do escritório"}
+            Faça login para acessar a calculadora
           </p>
         </div>
 
@@ -77,16 +83,16 @@ const Login = ({ onLogin }: LoginProps) => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
+                <Label htmlFor="usuario">Usuário</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
+                  id="usuario"
+                  type="text"
+                  placeholder="Admin"
                   autoCapitalize="none"
                   autoCorrect="off"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErro(null); }}
+                  autoComplete="username"
+                  value={usuario}
+                  onChange={(e) => { setUsuario(e.target.value); setErro(null); }}
                 />
               </div>
               <div className="space-y-2">
@@ -94,8 +100,8 @@ const Login = ({ onLogin }: LoginProps) => {
                 <Input
                   id="senha"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  autoComplete={modo === "login" ? "current-password" : "new-password"}
+                  placeholder="Senha de acesso"
+                  autoComplete="current-password"
                   value={senha}
                   onChange={(e) => { setSenha(e.target.value); setErro(null); }}
                 />
@@ -110,15 +116,7 @@ const Login = ({ onLogin }: LoginProps) => {
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Aguarde..." : modo === "login" ? "Entrar" : "Criar conta e entrar"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-xs"
-                onClick={() => { setModo(modo === "login" ? "signup" : "login"); setErro(null); }}
-              >
-                {modo === "login" ? "Criar nova conta do escritório" : "Já tenho conta — fazer login"}
+                {loading ? "Aguarde..." : "Entrar"}
               </Button>
             </form>
           </CardContent>
