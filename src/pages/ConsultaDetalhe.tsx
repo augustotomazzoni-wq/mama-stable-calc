@@ -10,6 +10,7 @@ import { deserializeInput, deserializeResult } from "@/lib/calcSerializer";
 import ResultCard from "@/components/ResultCard";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import ResumoCalculos from "@/components/ResumoCalculos";
+import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
 import Logo from "@/components/Logo";
 
 const ConsultaDetalhe = () => {
@@ -18,7 +19,7 @@ const ConsultaDetalhe = () => {
   const [input, setInput] = useState<CalcInput | null>(null);
   const [result, setResult] = useState<CalcResult | null>(null);
   const [memoriaJson, setMemoriaJson] = useState<any>(null);
-  const [view, setView] = useState<"resultado" | "memoria" | "resumo">("resultado");
+  const [view, setView] = useState<"resultado" | "memoria" | "resumo" | "concepcao">("resultado");
 
   useEffect(() => {
     (async () => {
@@ -101,7 +102,7 @@ const ConsultaDetalhe = () => {
             onReset={() => navigate("/consultas")}
             onBack={() => navigate("/consultas")}
             onOpenMemoria={() => setView("memoria")}
-            onOpenConcepcao={() => setView("resultado")}
+            onOpenConcepcao={() => setView("concepcao")}
             onOpenResumo={() => setView("resumo")}
           />
         )}
@@ -110,6 +111,9 @@ const ConsultaDetalhe = () => {
         )}
         {view === "resumo" && (
           <ResumoCalculos input={input} result={result} onClose={() => setView("resultado")} />
+        )}
+        {view === "concepcao" && (
+          <ConcepcaoCalculoPage input={input} onClose={() => setView("resultado")} />
         )}
       </div>
     </div>

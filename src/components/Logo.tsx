@@ -1,4 +1,4 @@
-import logo from "@/assets/logo-hoffmann-tomazzoni.png";
+import logo from "@/assets/logo-hoffmann-tomazzoni.svg";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
