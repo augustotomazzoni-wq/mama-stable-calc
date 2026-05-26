@@ -81,7 +81,8 @@ export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
 function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean): Tabela1 {
   const salarios = meses * salario;
   const decimoTerceiro = (salario / 12) * meses;
-  const feriasComTerco = (salario / 3) + decimoTerceiro;
+  const feriasProporcionais = (salario / 12) * meses;
+  const feriasComTerco = feriasProporcionais + feriasProporcionais / 3;
   const subtotalVerbas = salarios + decimoTerceiro + feriasComTerco;
   const aliquota = empregadaDomestica ? 0.112 : 0.08;
   const fgts = subtotalVerbas * aliquota;
