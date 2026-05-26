@@ -3,7 +3,7 @@ import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList, BarChart3 } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
 import Logo from "@/components/Logo";
@@ -313,10 +313,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         <Button onClick={onOpenResumo} variant="outline" className="w-full gap-2">
           <ClipboardList className="w-4 h-4" />
           Gerar resumo de cálculos
-        </Button>
-        <Button onClick={() => navigate("/analise")} variant="secondary" className="w-full gap-2">
-          <BarChart3 className="w-4 h-4" />
-          Análise Estatística
         </Button>
       </div>
 
