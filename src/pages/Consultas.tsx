@@ -146,12 +146,6 @@ const Consultas = () => {
           </Button>
         </div>
 
-        <div className="mb-4 flex justify-end">
-          <Button onClick={() => navigate("/analise")} variant="secondary" className="gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Análise Estatística
-          </Button>
-        </div>
 
         <Card className="mb-4">
           <CardHeader>
