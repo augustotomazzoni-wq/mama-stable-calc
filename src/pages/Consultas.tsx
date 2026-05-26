@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Eye, UserCheck, UserX, Trash2, Search, ArrowUpDown, LogOut, BarChart3 } from "lucide-react";
+import { ArrowLeft, Eye, UserCheck, UserX, Trash2, Search, ArrowUpDown, LogOut } from "lucide-react";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
