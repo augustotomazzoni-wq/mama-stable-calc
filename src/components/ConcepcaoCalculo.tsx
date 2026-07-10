@@ -35,24 +35,23 @@ const ConcepcaoCalculo = ({ info }: Props) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {info.metodo === 'exame' && info.dataExame && info.semanasExame !== undefined && info.diasExame !== undefined && info.idadeGestacionalDias && info.dumEstimada && info.concepcaoEstimada && (
+        {info.metodo === 'exame' && info.dataExame && info.dumEstimada && info.concepcaoEstimada && (
           <div className="space-y-3 text-sm leading-relaxed">
             <p>
-              Cálculo realizado com base no exame informado em <strong>{formatDateBR(info.dataExame)}</strong>, que indicou idade gestacional de <strong>{info.semanasExame} semanas e {info.diasExame} dias</strong>.
+              Cálculo realizado com base no exame informado em <strong>{formatDateBR(info.dataExame)}</strong>.
+              {info.semanasExame !== undefined && info.diasExame !== undefined && (
+                <> O exame indicou idade gestacional de <strong>{info.semanasExame} semanas e {info.diasExame} dias</strong>.</>
+              )}
             </p>
 
             <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
               <p className="font-medium text-foreground">Passo a passo:</p>
               <p>
-                1. Convertemos a idade gestacional para dias:<br />
-                <span className="font-mono text-primary">{info.semanasExame} semanas × 7 + {info.diasExame} dias = {info.idadeGestacionalDias} dias</span>
+                1. Estimamos a DUM retroagindo 14 dias a partir da data do exame:<br />
+                <span className="font-mono text-primary">{formatDateBR(info.dataExame)} − 14 dias = {formatDateBR(info.dumEstimada)}</span>
               </p>
               <p>
-                2. Retroagimos esse total a partir da data do exame para encontrar a DUM estimada:<br />
-                <span className="font-mono text-primary">{formatDateBR(info.dataExame)} − {info.idadeGestacionalDias} dias = {formatDateBR(info.dumEstimada)}</span>
-              </p>
-              <p>
-                3. Somamos 14 dias à DUM estimada para encontrar a data estimada da concepção:<br />
+                2. Somamos 14 dias à DUM estimada para encontrar a data estimada da concepção:<br />
                 <span className="font-mono text-primary">{formatDateBR(info.dumEstimada)} + 14 dias = {formatDateBR(info.concepcaoEstimada)}</span>
               </p>
             </div>
@@ -60,7 +59,10 @@ const ConcepcaoCalculo = ({ info }: Props) => {
             <div className="rounded-lg bg-muted/50 p-3 text-sm">
               <p className="font-medium text-foreground">Fórmula resumida:</p>
               <p className="font-mono text-primary">
-                {formatDateBR(info.dataExame)} − {info.idadeGestacionalDias} dias + 14 dias = {formatDateBR(info.concepcaoEstimada)}
+                {formatDateBR(info.dataExame)} − 14 dias + 14 dias = {formatDateBR(info.concepcaoEstimada)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Portanto, a data estimada da concepção coincide com a data do exame.
               </p>
             </div>
 
