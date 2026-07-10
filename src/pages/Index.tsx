@@ -78,6 +78,17 @@ const Index = () => {
   const [exameSemanas, setExameSemanas] = useState("");
   const [exameDias, setExameDias] = useState("");
 
+  // Tracks how concepcao/partoPrevisao were actually derived, so the
+  // memória de cálculo always matches the fields really used in the cálculo.
+  const [concepcaoMetodo, setConcepcaoMetodo] = useState<"exame" | "dpp">("dpp");
+  const [exameAplicado, setExameAplicado] = useState<{
+    dataExame: Date;
+    semanas: number;
+    dias: number;
+    idadeGestacionalDias: number;
+    dumEstimada: Date;
+  } | null>(null);
+
   const exameConcepcaoDate = useMemo(() => {
     if (!exameData || exameSemanas === "") return null;
     const eDate = parseDateFromInput(exameData);
@@ -98,6 +109,19 @@ const Index = () => {
       setConcepcao(toInputDate(exameConcepcaoDate));
       setPartoPrevisao(toInputDate(examePartoDate));
       setUltimoEditado(null);
+
+      const eDate = parseDateFromInput(exameData)!;
+      const sem = Number(exameSemanas);
+      const dias = Number(exameDias) || 0;
+      const totalDias = sem * 7 + dias;
+      setExameAplicado({
+        dataExame: eDate,
+        semanas: sem,
+        dias,
+        idadeGestacionalDias: totalDias,
+        dumEstimada: addDays(eDate, -totalDias),
+      });
+      setConcepcaoMetodo("exame");
     }
   };
 
@@ -162,33 +186,29 @@ const Index = () => {
   const handleNext = () => {
     if (step === 1 && isStep1Valid) setStep(2);else
     if (step === 2 && isStep2Valid) {
-      // Build concepcao info
+      // Build concepcao info from the fields actually used in the cálculo,
+      // usando o método (exame vs. datas diretas) rastreado a cada edição —
+      // assim a memória de cálculo nunca destoa do concepcao/partoPrevisao reais.
+      const concDateAtual = parseDateFromInput(concepcao)!;
+      const pDateAtual = parseDateFromInput(partoPrevisao)!;
       let concepcaoInfo: ConcepcaoInfo;
-      const exameDataParsed = parseDateFromInput(exameData);
-      if (exameDataParsed && exameSemanas !== "" && Number(exameSemanas) > 0) {
-        const sem = Number(exameSemanas);
-        const dias = Number(exameDias) || 0;
-        const totalDias = sem * 7 + dias;
-        const dumEstimada = addDays(exameDataParsed, -totalDias);
-        const concepcaoEst = addDays(dumEstimada, 14);
+      if (concepcaoMetodo === 'exame' && exameAplicado) {
         concepcaoInfo = {
           metodo: 'exame',
-          dataExame: exameDataParsed,
-          semanasExame: sem,
-          diasExame: dias,
-          idadeGestacionalDias: totalDias,
-          dumEstimada,
-          concepcaoEstimada: concepcaoEst,
-        };
-      } else if (partoPrevisao) {
-        const pDate = parseDateFromInput(partoPrevisao)!;
-        concepcaoInfo = {
-          metodo: 'dpp',
-          dpp: pDate,
-          concepcaoEstimada: addDays(pDate, -266),
+          dataExame: exameAplicado.dataExame,
+          semanasExame: exameAplicado.semanas,
+          diasExame: exameAplicado.dias,
+          idadeGestacionalDias: exameAplicado.idadeGestacionalDias,
+          dumEstimada: exameAplicado.dumEstimada,
+          concepcaoEstimada: concDateAtual,
+          dpp: pDateAtual,
         };
       } else {
-        concepcaoInfo = { metodo: 'insuficiente' };
+        concepcaoInfo = {
+          metodo: 'dpp',
+          dpp: pDateAtual,
+          concepcaoEstimada: concDateAtual,
+        };
       }
 
       const input: CalcInput = {
@@ -253,6 +273,8 @@ const Index = () => {
     setExameData("");
     setExameSemanas("");
     setExameDias("");
+    setConcepcaoMetodo("dpp");
+    setExameAplicado(null);
     setShowMemoria(false);
   };
 
@@ -421,7 +443,7 @@ const Index = () => {
                 id="concepcao"
                 type="date"
                 value={concepcao}
-                onChange={(e) => {setConcepcao(e.target.value);setUltimoEditado("concepcao");}} />
+                onChange={(e) => {setConcepcao(e.target.value);setUltimoEditado("concepcao");setConcepcaoMetodo("dpp");}} />
               
                 <Button
                 type="button"
@@ -450,7 +472,7 @@ const Index = () => {
                 id="parto"
                 type="date"
                 value={partoPrevisao}
-                onChange={(e) => {setPartoPrevisao(e.target.value);setUltimoEditado("parto");}} />
+                onChange={(e) => {setPartoPrevisao(e.target.value);setUltimoEditado("parto");setConcepcaoMetodo("dpp");}} />
               
                 <Button
                 type="button"
