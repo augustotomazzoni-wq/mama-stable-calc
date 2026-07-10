@@ -90,14 +90,13 @@ const Index = () => {
   } | null>(null);
 
   const exameConcepcaoDate = useMemo(() => {
-    if (!exameData || exameSemanas === "") return null;
+    if (!exameData) return null;
     const eDate = parseDateFromInput(exameData);
     if (!eDate) return null;
-    const totalDias = Number(exameSemanas) * 7 + (Number(exameDias) || 0);
-    if (totalDias <= 0) return null;
-    const dumEstimada = addDays(eDate, -totalDias);
-    return addDays(dumEstimada, 14); // DUM + 14 = concepção estimada
-  }, [exameData, exameSemanas, exameDias]);
+    // DUM estimada = data do exame − 14 dias
+    // Concepção = DUM + 14 dias = data do exame
+    return eDate;
+  }, [exameData]);
 
   const examePartoDate = useMemo(() => {
     if (!exameConcepcaoDate) return null;
@@ -111,7 +110,7 @@ const Index = () => {
       setUltimoEditado(null);
 
       const eDate = parseDateFromInput(exameData)!;
-      const sem = Number(exameSemanas);
+      const sem = exameSemanas !== "" ? Number(exameSemanas) : 0;
       const dias = Number(exameDias) || 0;
       const totalDias = sem * 7 + dias;
       setExameAplicado({
@@ -119,7 +118,8 @@ const Index = () => {
         semanas: sem,
         dias,
         idadeGestacionalDias: totalDias,
-        dumEstimada: addDays(eDate, -totalDias),
+        // Cálculo simplificado: DUM = exame − 14 dias; concepção = exame
+        dumEstimada: addDays(eDate, -14),
       });
       setConcepcaoMetodo("exame");
     }
