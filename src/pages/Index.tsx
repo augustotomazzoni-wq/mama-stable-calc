@@ -90,14 +90,13 @@ const Index = () => {
   } | null>(null);
 
   const exameConcepcaoDate = useMemo(() => {
-    if (!exameData || exameSemanas === "") return null;
+    if (!exameData) return null;
     const eDate = parseDateFromInput(exameData);
     if (!eDate) return null;
-    const totalDias = Number(exameSemanas) * 7 + (Number(exameDias) || 0);
-    if (totalDias <= 0) return null;
-    const dumEstimada = addDays(eDate, -totalDias);
-    return addDays(dumEstimada, 14); // DUM + 14 = concepção estimada
-  }, [exameData, exameSemanas, exameDias]);
+    // DUM estimada = data do exame − 14 dias
+    // Concepção = DUM + 14 dias = data do exame
+    return eDate;
+  }, [exameData]);
 
   const examePartoDate = useMemo(() => {
     if (!exameConcepcaoDate) return null;
@@ -111,7 +110,7 @@ const Index = () => {
       setUltimoEditado(null);
 
       const eDate = parseDateFromInput(exameData)!;
-      const sem = Number(exameSemanas);
+      const sem = exameSemanas !== "" ? Number(exameSemanas) : 0;
       const dias = Number(exameDias) || 0;
       const totalDias = sem * 7 + dias;
       setExameAplicado({
@@ -119,7 +118,8 @@ const Index = () => {
         semanas: sem,
         dias,
         idadeGestacionalDias: totalDias,
-        dumEstimada: addDays(eDate, -totalDias),
+        // Cálculo simplificado: DUM = exame − 14 dias; concepção = exame
+        dumEstimada: addDays(eDate, -14),
       });
       setConcepcaoMetodo("exame");
     }
@@ -408,7 +408,7 @@ const Index = () => {
                 {showExameHelper &&
               <div className="space-y-3 pt-1">
                     <p className="text-xs text-muted-foreground">
-                      Informe a data do exame e a idade gestacional para calcular concepção e parto.
+                      Informe a data do exame. O cálculo segue a regra: DUM = data do exame − 14 dias; concepção = data do exame. A idade gestacional é registrada apenas como referência.
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="exameData" className="text-sm">Data do exame</Label>
@@ -426,8 +426,12 @@ const Index = () => {
                     </div>
                     {exameConcepcaoDate && examePartoDate &&
                 <div className="rounded-md bg-accent/40 p-3 space-y-1 text-sm">
-                        <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')}</p>
+                        <p><span className="font-medium">DUM estimada:</span> {addDays(exameConcepcaoDate, -14).toLocaleDateString('pt-BR')}</p>
+                        <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')} (igual à data do exame)</p>
                         <p><span className="font-medium">Previsão do parto:</span> {examePartoDate.toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          DUM = data do exame − 14 dias; concepção = DUM + 14 dias = data do exame.
+                        </p>
                         <Button type="button" size="sm" className="w-full mt-2 gap-1.5" onClick={aplicarExame}>
                           Usar estas datas
                         </Button>
