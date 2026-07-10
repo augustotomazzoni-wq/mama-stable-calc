@@ -408,7 +408,7 @@ const Index = () => {
                 {showExameHelper &&
               <div className="space-y-3 pt-1">
                     <p className="text-xs text-muted-foreground">
-                      Informe a data do exame e a idade gestacional para calcular concepção e parto.
+                      Informe a data do exame. O cálculo segue a regra: DUM = data do exame − 14 dias; concepção = data do exame. A idade gestacional é registrada apenas como referência.
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="exameData" className="text-sm">Data do exame</Label>
