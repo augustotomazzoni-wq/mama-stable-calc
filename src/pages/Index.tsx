@@ -426,8 +426,12 @@ const Index = () => {
                     </div>
                     {exameConcepcaoDate && examePartoDate &&
                 <div className="rounded-md bg-accent/40 p-3 space-y-1 text-sm">
-                        <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')}</p>
+                        <p><span className="font-medium">DUM estimada:</span> {addDays(exameConcepcaoDate, -14).toLocaleDateString('pt-BR')}</p>
+                        <p><span className="font-medium">Concepção:</span> {exameConcepcaoDate.toLocaleDateString('pt-BR')} (igual à data do exame)</p>
                         <p><span className="font-medium">Previsão do parto:</span> {examePartoDate.toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          DUM = data do exame − 14 dias; concepção = DUM + 14 dias = data do exame.
+                        </p>
                         <Button type="button" size="sm" className="w-full mt-2 gap-1.5" onClick={aplicarExame}>
                           Usar estas datas
                         </Button>
