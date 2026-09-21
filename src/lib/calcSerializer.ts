@@ -17,6 +17,13 @@ export function serializeInput(input: CalcInput) {
     concepcao: input.concepcao.toISOString(),
     partoPrevisao: input.partoPrevisao.toISOString(),
     admissao: input.admissao ? input.admissao.toISOString() : null,
+    vinculo: input.vinculo
+      ? {
+          ...input.vinculo,
+          inicio: input.vinculo.inicio.toISOString(),
+          fim: input.vinculo.fim.toISOString(),
+        }
+      : null,
     concepcaoInfo: input.concepcaoInfo
       ? {
           ...input.concepcaoInfo,
@@ -32,6 +39,9 @@ export function serializeInput(input: CalcInput) {
 export function deserializeInput(data: any): CalcInput {
   const i = reviveDates(data, ["nascimento", "demissao", "concepcao", "partoPrevisao", "admissao"]);
   if (i.nascimento === null || i.nascimento === undefined) i.nascimento = null;
+  if (i.vinculo) {
+    i.vinculo = reviveDates(i.vinculo, ["inicio", "fim"]);
+  }
   if (i.concepcaoInfo) {
     i.concepcaoInfo = reviveDates(i.concepcaoInfo, [
       "dataExame",
@@ -48,11 +58,22 @@ export function serializeResult(result: CalcResult) {
     ...result,
     previsaoParto: result.previsaoParto.toISOString(),
     fimEstabilidade: result.fimEstabilidade.toISOString(),
+    vinculo: result.vinculo
+      ? {
+          ...result.vinculo,
+          inicio: result.vinculo.inicio.toISOString(),
+          fim: result.vinculo.fim.toISOString(),
+        }
+      : null,
   };
 }
 
 export function deserializeResult(data: any): CalcResult {
-  return reviveDates(data, ["previsaoParto", "fimEstabilidade"]) as CalcResult;
+  const r = reviveDates(data, ["previsaoParto", "fimEstabilidade"]);
+  if (r.vinculo) {
+    r.vinculo = reviveDates(r.vinculo, ["inicio", "fim"]);
+  }
+  return r as CalcResult;
 }
 
 export function buildResumoJson(input: CalcInput, result: CalcResult) {
@@ -63,6 +84,8 @@ export function buildResumoJson(input: CalcInput, result: CalcResult) {
     mesesEstabilidade: result.mesesEstabilidade,
     subtotalIndenizacao: result.tabela1.total,
     subtotalVerbasRescisorias: result.tabela2?.total ?? 0,
+    subtotalVinculo: result.vinculo?.total ?? 0,
+    mesesVinculo: result.vinculo?.meses ?? 0,
     multaFgts40: result.multaFgts?.multa40 ?? 0,
     totalFinal: result.totalFinal,
   };

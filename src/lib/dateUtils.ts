@@ -33,6 +33,17 @@ export function ceilMonthsBetween(startDate: Date, endDate: Date): number {
   return totalMonths;
 }
 
+/** Anos completos entre duas datas, como se conta tempo de serviço. */
+export function anosCompletosEntre(inicio: Date, fim: Date): number {
+  if (inicio >= fim) return 0;
+  let anos = fim.getFullYear() - inicio.getFullYear();
+  const antesDoAniversario =
+    fim.getMonth() < inicio.getMonth() ||
+    (fim.getMonth() === inicio.getMonth() && fim.getDate() < inicio.getDate());
+  if (antesDoAniversario) anos -= 1;
+  return Math.max(0, anos);
+}
+
 export function formatDateBR(date: Date): string {
   const d = String(date.getDate()).padStart(2, '0');
   const m = String(date.getMonth() + 1).padStart(2, '0');

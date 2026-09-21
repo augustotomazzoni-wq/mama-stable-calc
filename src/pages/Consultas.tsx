@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Eye, UserCheck, UserX, Trash2, Search, ArrowUpDown, LogOut, BarChart3 } from "lucide-react";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
+import { registrarAcesso } from "@/lib/db";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 import {
@@ -124,8 +125,9 @@ const Consultas = () => {
   };
 
   const logout = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) await registrarAcesso(data.user.id, data.user.email ?? null, "logout");
     await supabase.auth.signOut();
-    window.location.reload();
   };
 
   return (

@@ -10,38 +10,80 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield, Search, LogOut } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Home, Link, Unlink, Stethoscope, ChevronDown, ChevronUp, Shield, Search, LogOut, UserMinus, DoorOpen, CalendarClock, Briefcase, Users, type LucideIcon } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import ResultCard from "@/components/ResultCard";
 import Logo from "@/components/Logo";
 import MemoriaCalculoDetalhada from "@/components/MemoriaCalculoDetalhada";
 import ConcepcaoCalculoPage from "@/components/ConcepcaoCalculoPage";
 import ResumoCalculos from "@/components/ResumoCalculos";
-import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, CalcInput, CalcResult } from "@/lib/calculator";
+import { calcPrevisaoParto, calcMesesAteParto, calcMesesEstabilidade, calculate, incluiFgtsDoContrato, CalcInput, CalcResult, MotivoSaida } from "@/lib/calculator";
+
+type RecebidoCampo = "salarios" | "decimoTerceiro" | "ferias" | "fgts" | "rescisorias" | "outros";
+
+const RECEBIDO_VAZIO: Record<RecebidoCampo, string> = {
+  salarios: "",
+  decimoTerceiro: "",
+  ferias: "",
+  fgts: "",
+  rescisorias: "",
+  outros: "",
+};
+
+const CAMPOS_RECEBIDO: { campo: RecebidoCampo; label: string }[] = [
+  { campo: "salarios", label: "Salários recebidos por fora" },
+  { campo: "decimoTerceiro", label: "13º recebido" },
+  { campo: "ferias", label: "Férias recebidas" },
+  { campo: "fgts", label: "FGTS depositado" },
+  { campo: "rescisorias", label: "Aviso prévio e demais verbas da saída" },
+];
 import { parseDateFromInput, toInputDate, addDays } from "@/lib/dateUtils";
-import Login from "./Login";
+import { useSessao } from "@/hooks/useSessao";
+import { registrarAcesso } from "@/lib/db";
 
 const STEPS = ["Dados da Cliente", "Contrato e Gestação", "Resultado"];
 
+/** Campo de dinheiro vazio conta como zero, não como NaN. */
+const valorNumerico = (v: string): number => (v === "" ? 0 : Number(v) || 0);
+
+/**
+ * Em todos os motivos o ato é nulo e o contrato se projeta até o fim da
+ * estabilidade. A diferença está no que a empregada já recebeu ao sair.
+ */
+const MOTIVOS_SAIDA: {
+  valor: MotivoSaida;
+  titulo: string;
+  descricao: string;
+  icone: LucideIcon;
+}[] = [
+  {
+    valor: "dispensa_sem_justa_causa",
+    titulo: "Deram a conta",
+    descricao: "Dispensa sem justa causa. Aviso, 13º, férias e os 40% do contrato já foram pagos na rescisão.",
+    icone: UserMinus,
+  },
+  {
+    valor: "pedido_demissao",
+    titulo: "Ela pediu a conta",
+    descricao: "Pedido de demissão nulo sem assistência sindical (CLT 500). Nada rescisório foi pago.",
+    icone: DoorOpen,
+  },
+  {
+    valor: "fim_experiencia",
+    titulo: "Acabou a experiência",
+    descricao: "Estabilidade garantida mesmo no contrato a termo (Súmula 244, III, do TST).",
+    icone: CalendarClock,
+  },
+];
+
 const Index = () => {
   const navigate = useNavigate();
-  const [autenticado, setAutenticado] = useState(false);
-  const [checandoSessao, setChecandoSessao] = useState(true);
-
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setAutenticado(!!session);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setAutenticado(!!data.session);
-      setChecandoSessao(false);
-    });
-    return () => { sub.subscription.unsubscribe(); };
-  }, []);
+  // A sessao e o papel sao garantidos pelo RotaProtegida que envolve esta tela.
+  const { usuario, ehAdmin } = useSessao();
 
   const handleLogout = async () => {
+    if (usuario) await registrarAcesso(usuario.id, usuario.email ?? null, "logout");
     await supabase.auth.signOut();
-    setAutenticado(false);
   };
 
   const [step, setStep] = useState(1);
@@ -53,7 +95,7 @@ const Index = () => {
   const [nome, setNome] = useState("");
   const [nascimento, setNascimento] = useState("");
   const [salario, setSalario] = useState("");
-  const [pediuAConta, setPediuAConta] = useState(false);
+  const [motivoSaida, setMotivoSaida] = useState<MotivoSaida>("dispensa_sem_justa_causa");
   const [empregadaDomestica, setEmpregadaDomestica] = useState(false);
 
   // Step 2
@@ -63,7 +105,15 @@ const Index = () => {
   const [partoPrevisao, setPartoPrevisao] = useState("");
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
-  const [calcularMultaFgts, setCalcularMultaFgts] = useState(false);
+  const [calcularMultaFgts, setCalcularMultaFgts] = useState(true);
+
+  // Módulo de reconhecimento de vínculo
+  const [vinculoAtivo, setVinculoAtivo] = useState(false);
+  const [vinculoInicio, setVinculoInicio] = useState("");
+  const [vinculoFim, setVinculoFim] = useState("");
+  const [vinculoSalario, setVinculoSalario] = useState("");
+  const [recebido, setRecebido] = useState<Record<RecebidoCampo, string>>(RECEBIDO_VAZIO);
+  const [recebidoOutrosDescricao, setRecebidoOutrosDescricao] = useState("");
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
@@ -146,12 +196,17 @@ const Index = () => {
     }
   }, [partoPrevisao, ultimoEditado, autoConcepcao]);
 
-  // Clear admissao when multa is turned off
-  useEffect(() => {
-    if (!calcularMultaFgts) {
-      setAdmissao("");
+  const setRec = (campo: RecebidoCampo, valor: string) =>
+  setRecebido((prev) => ({ ...prev, [campo]: valor }));
+
+  // Ligar o módulo já herda o fim e o salário do contrato, que é o caso comum.
+  const toggleVinculo = (ativo: boolean) => {
+    setVinculoAtivo(ativo);
+    if (ativo) {
+      if (!vinculoFim && demissao) setVinculoFim(demissao);
+      if (!vinculoSalario && salario) setVinculoSalario(salario);
     }
-  }, [calcularMultaFgts]);
+  };
 
   const concepcaoDate = parseDateFromInput(concepcao);
   const demissaoDate = parseDateFromInput(demissao);
@@ -177,11 +232,24 @@ const Index = () => {
   salario !== "" &&
   Number(salario) > 0;
 
+  // A admissão só é indispensável quando o FGTS do contrato entra na base da
+  // multa: na dispensa sem justa causa essa parcela já foi paga na rescisão.
+  const admissaoObrigatoria = calcularMultaFgts && incluiFgtsDoContrato(motivoSaida);
+
+  const vinculoValido =
+  !vinculoAtivo || (
+  vinculoInicio !== "" &&
+  vinculoFim !== "" &&
+  vinculoSalario !== "" &&
+  Number(vinculoSalario) > 0 &&
+  parseDateFromInput(vinculoInicio)! < parseDateFromInput(vinculoFim)!);
+
   const isStep2Valid =
   demissao !== "" &&
   concepcao !== "" &&
   partoPrevisao !== "" && (
-  !calcularMultaFgts || admissao !== "");
+  !admissaoObrigatoria || admissao !== "") &&
+  vinculoValido;
 
   const handleNext = () => {
     if (step === 1 && isStep1Valid) setStep(2);else
@@ -218,11 +286,28 @@ const Index = () => {
         demissao: parseDateFromInput(demissao)!,
         concepcao: parseDateFromInput(concepcao)!,
         partoPrevisao: parseDateFromInput(partoPrevisao)!,
-        pediuAConta,
+        pediuAConta: motivoSaida === "pedido_demissao",
+        motivoSaida,
         mesesManual: editarMesesManual && mesesManual !== "" ? Number(mesesManual) : null,
         empregadaDomestica,
         admissao: admissao ? parseDateFromInput(admissao) : null,
         calcularMultaFgts,
+        vinculo: vinculoAtivo ?
+        {
+          inicio: parseDateFromInput(vinculoInicio)!,
+          fim: parseDateFromInput(vinculoFim)!,
+          salario: Number(vinculoSalario),
+          recebido: {
+            salarios: valorNumerico(recebido.salarios),
+            decimoTerceiro: valorNumerico(recebido.decimoTerceiro),
+            ferias: valorNumerico(recebido.ferias),
+            fgts: valorNumerico(recebido.fgts),
+            rescisorias: valorNumerico(recebido.rescisorias),
+            outros: valorNumerico(recebido.outros),
+            outrosDescricao: recebidoOutrosDescricao.trim() || undefined,
+          },
+        } :
+        null,
         concepcaoInfo,
       };
       const r = calculate(input);
@@ -235,7 +320,10 @@ const Index = () => {
       (async () => {
         const serialInput = serializeInput(input);
         const serialResult = serializeResult(r);
+        // Registra quem fez o cálculo, agora que cada pessoa entra com a própria conta.
+        const { data: auth } = await supabase.auth.getUser();
         const { error } = await supabase.from("consultas_calculo").insert({
+          user_id: auth.user?.id ?? null,
           nome_completo: input.nome,
           data_nascimento: input.nascimento ? input.nascimento.toISOString().slice(0, 10) : null,
           valor_total_indenizacao: r.totalFinal,
@@ -256,7 +344,7 @@ const Index = () => {
     setStep(1);
     setNome("");
     setNascimento("");
-    setPediuAConta(false);
+    setMotivoSaida("dispensa_sem_justa_causa");
     setEmpregadaDomestica(false);
     setSalario("");
     setAdmissao("");
@@ -265,7 +353,13 @@ const Index = () => {
     setPartoPrevisao("");
     setEditarMesesManual(false);
     setMesesManual("");
-    setCalcularMultaFgts(false);
+    setCalcularMultaFgts(true);
+    setVinculoAtivo(false);
+    setVinculoInicio("");
+    setVinculoFim("");
+    setVinculoSalario("");
+    setRecebido(RECEBIDO_VAZIO);
+    setRecebidoOutrosDescricao("");
     setUltimoEditado(null);
     setAutoConcepcao(true);
     setAutoParto(true);
@@ -277,14 +371,6 @@ const Index = () => {
     setExameAplicado(null);
     setShowMemoria(false);
   };
-
-  if (checandoSessao) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Carregando...</div>;
-  }
-
-  if (!autenticado) {
-    return <Login onLogin={() => setAutenticado(true)} />;
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -308,6 +394,17 @@ const Index = () => {
               <Search className="w-4 h-4" />
               Pesquisar cálculos já realizados
             </Button>
+            {ehAdmin &&
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate("/usuarios")}>
+
+                <Users className="w-4 h-4" />
+                Usuários
+              </Button>
+            }
             <Button variant="ghost" size="sm" className="gap-2" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Sair
@@ -357,18 +454,36 @@ const Index = () => {
                 </p>
               </div>
 
-              {/* Toggle pediu a conta */}
-              <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="pediuAConta" className="text-base font-semibold cursor-pointer">
-                    Ela pediu a conta?
-                  </Label>
-                  <Switch id="pediuAConta" checked={pediuAConta} onCheckedChange={setPediuAConta} />
+              {/* Motivo da saída */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Como ela saiu da empresa?</Label>
+                <div className="grid gap-2">
+                  {MOTIVOS_SAIDA.map((m) => {
+                    const Icone = m.icone;
+                    const ativo = motivoSaida === m.valor;
+                    return (
+                      <button
+                        key={m.valor}
+                        type="button"
+                        aria-pressed={ativo}
+                        onClick={() => setMotivoSaida(m.valor)}
+                        className={`flex items-start gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
+                        ativo ?
+                        "border-primary bg-accent/40" :
+                        "border-border hover:border-primary/40 hover:bg-accent/10"}`
+                        }>
+
+                        <Icone className={`w-4 h-4 mt-0.5 shrink-0 ${ativo ? "text-primary" : "text-muted-foreground"}`} />
+                        <span>
+                          <span className="block text-sm font-semibold text-foreground">{m.titulo}</span>
+                          <span className="block text-xs text-muted-foreground mt-0.5">{m.descricao}</span>
+                        </span>
+                      </button>);
+
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {pediuAConta ?
-                "Tipo de rescisão: Pedido de demissão — verbas rescisórias completas serão calculadas" :
-                "Tipo de rescisão: Dispensa — apenas indenização e FGTS serão calculados"}
+                  Em qualquer um dos casos o contrato se projeta até o fim da estabilidade e a dispensa sem justa causa só ocorre ao final.
                 </p>
               </div>
 
@@ -546,22 +661,113 @@ const Index = () => {
                   <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {calcularMultaFgts ?
-                "Preencha a data de admissão abaixo para calcular a multa de 40% sobre o FGTS" :
-                "Ative para incluir a multa de 40% do FGTS no cálculo"}
+                  {!calcularMultaFgts ?
+                "Ative para incluir a multa de 40% do FGTS no cálculo" :
+                admissaoObrigatoria ?
+                "Base: FGTS do período de estabilidade + FGTS do contrato. Informe a data de admissão abaixo." :
+                "Base: apenas o FGTS do período de estabilidade — os 40% do contrato já foram pagos na rescisão."}
                 </p>
               </div>
 
-              {/* Data de admissão - condicional */}
-              {calcularMultaFgts &&
-            <div className="space-y-2">
-                  <Label htmlFor="admissao">Data de admissão *</Label>
-                  <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
-                  {!admissao &&
+              {/* Data de admissão */}
+              <div className="space-y-2">
+                <Label htmlFor="admissao">Data de admissão {admissaoObrigatoria ? "*" : ""}</Label>
+                <Input id="admissao" type="date" value={admissao} onChange={(e) => setAdmissao(e.target.value)} />
+                {admissaoObrigatoria && !admissao ?
               <p className="text-xs text-destructive">
-                      Obrigatório quando a multa de 40% está ativada.
-                    </p>
+                    Obrigatória para apurar o FGTS do contrato que entra na base da multa de 40%.
+                  </p> :
+
+              <p className="text-xs text-muted-foreground">
+                    Opcional neste caso — serve para registrar o tempo de casa no histórico.
+                  </p>
               }
+              </div>
+
+              {/* Reconhecimento de vínculo */}
+              <div className="rounded-lg border-2 border-primary/20 bg-accent/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-primary" />
+                    <Label htmlFor="vinculoAtivo" className="text-base font-semibold cursor-pointer">
+                      Teve período sem registro?
+                    </Label>
+                  </div>
+                  <Switch id="vinculoAtivo" checked={vinculoAtivo} onCheckedChange={toggleVinculo} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {vinculoAtivo ?
+                "As verbas do período sem carteira entram no mesmo cálculo, abatido o que ela já recebeu." :
+                "Ative para pedir o reconhecimento do vínculo junto com a estabilidade."}
+                </p>
+              </div>
+
+              {vinculoAtivo &&
+            <div className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="vinculoInicio">Começou em *</Label>
+                      <Input id="vinculoInicio" type="date" value={vinculoInicio} onChange={(e) => setVinculoInicio(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vinculoFim">Até *</Label>
+                      <Input id="vinculoFim" type="date" value={vinculoFim} onChange={(e) => setVinculoFim(e.target.value)} />
+                    </div>
+                  </div>
+
+                  {vinculoInicio && vinculoFim && parseDateFromInput(vinculoInicio)! >= parseDateFromInput(vinculoFim)! &&
+              <p className="text-xs text-destructive">A data final precisa ser posterior à inicial.</p>
+              }
+
+                  <div className="space-y-2">
+                    <Label htmlFor="vinculoSalario">Salário no período sem registro *</Label>
+                    <Input id="vinculoSalario" type="number" min="0.01" step="0.01" placeholder="3500.00" value={vinculoSalario} onChange={(e) => setVinculoSalario(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">
+                      Vem preenchido com o salário da carteira. Ajuste se o combinado era outro.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 border-t border-border pt-3">
+                    <div>
+                      <Label className="text-sm font-semibold">O que ela já recebeu</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Deixe em branco o que não foi pago. Cada valor abate a verba correspondente.
+                      </p>
+                    </div>
+
+                    {CAMPOS_RECEBIDO.map((c) =>
+                <div key={c.campo} className="space-y-1.5">
+                        <Label htmlFor={`rec-${c.campo}`} className="text-sm font-normal">{c.label}</Label>
+                        <Input
+                    id={`rec-${c.campo}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={recebido[c.campo]}
+                    onChange={(e) => setRec(c.campo, e.target.value)} />
+
+                      </div>
+                )}
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="rec-outros" className="text-sm font-normal">Outros valores recebidos</Label>
+                      <Input
+                  id="rec-outros"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={recebido.outros}
+                  onChange={(e) => setRec("outros", e.target.value)} />
+
+                      <Input
+                  placeholder="A que se referem (opcional)"
+                  value={recebidoOutrosDescricao}
+                  onChange={(e) => setRecebidoOutrosDescricao(e.target.value)} />
+
+                    </div>
+                  </div>
                 </div>
             }
 

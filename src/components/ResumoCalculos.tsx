@@ -25,18 +25,22 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
+  const vin = result.vinculo;
 
   // 1. Cálculo de Indenização = subtotal da tabela 1
   const indenizacao = t1.total;
 
-  // 2. Cálculo das Verbas Rescisórias = aviso + 13º aviso + férias aviso + multa 40%
-  const verbasRescisorias = (t2 ? t2.avisoProvio + t2.decimoTerceiroAviso + t2.feriasComTercoAviso : 0) + (mf ? mf.multa40 : 0);
+  // 2. Diferenças do período sem registro, já abatido o que foi pago
+  const periodoSemRegistro = vin ? vin.total : 0;
 
-  // 3. Multa Art. 477
-  const multa477 = t2 ? t2.multa477 : 0;
+  // 3. Verbas rescisórias e multa do 477: fatiadas a partir do subtotal da
+  //    tabela 2 para que as linhas somem exatamente o total final, mesmo quando
+  //    parte delas já foi paga na saída e entrou como abatimento.
+  const multa477 = t2 ? Math.min(t2.multa477, t2.total) : 0;
+  const verbasRescisorias = (t2 ? Math.max(0, t2.total - multa477) : 0) + (mf ? mf.multa40 : 0);
 
   // 4. Valor Total
-  const valorTotal = indenizacao + verbasRescisorias + multa477;
+  const valorTotal = indenizacao + periodoSemRegistro + verbasRescisorias + multa477;
 
   // 5. Honorários de Sucumbência (15%)
   const honorarios = valorTotal * 0.15;
@@ -63,6 +67,10 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
       {/* Campos */}
       <section className="space-y-0">
         <LinhaResumo titulo="Cálculo de Indenização" valor={indenizacao} />
+
+        {periodoSemRegistro > 0 && (
+          <LinhaResumo titulo="Período sem Registro" valor={periodoSemRegistro} />
+        )}
 
         {(verbasRescisorias > 0) && (
           <LinhaResumo titulo="Cálculo das Verbas Rescisórias" valor={verbasRescisorias} />

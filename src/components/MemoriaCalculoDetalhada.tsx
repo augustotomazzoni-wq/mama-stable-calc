@@ -71,9 +71,19 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
+  const vin = result.vinculo;
+  // A numeração acompanha as seções que existem neste cálculo.
+  const nVinculo = 3;
+  const nRescisorias = 3 + (vin ? 1 : 0);
+  const nMulta = 3 + (vin ? 1 : 0) + (t2 ? 1 : 0);
   const aliquotaLabel = input.empregadaDomestica ? "11,2%" : "8%";
   const meses = result.mesesEstabilidade;
   const sal = input.salario;
+
+  // Reconstituídos a partir do resultado para a fórmula exibida bater com a conta:
+  // férias proporcionais são 3/4 do valor já acrescido de 1/3.
+  const feriasProporcionais = (t1.feriasComTerco * 3) / 4;
+  const tercoFerias = t1.feriasComTerco - feriasProporcionais;
 
   const fmt = (v: number) => formatBRL(v);
 
@@ -156,7 +166,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         <LinhaVerba
           titulo="Férias + 1/3"
           valor={t1.feriasComTerco}
-          formula={`(${fmt(sal)} ÷ 3) + ${fmt(t1.decimoTerceiro)} = ${fmt(t1.feriasComTerco)}`}
+          formula={`(${fmt(sal)} ÷ 12) × ${meses} = ${fmt(feriasProporcionais)} + 1/3 (${fmt(tercoFerias)}) = ${fmt(t1.feriasComTerco)}`}
         />
         <LinhaVerba
           titulo={`FGTS (${aliquotaLabel})`}
@@ -167,17 +177,61 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         <SubtotalLinha titulo="Subtotal Indenização" valor={t1.total} />
       </section>
 
-      {/* 3. Cálculo das verbas rescisórias */}
+      {/* Período trabalhado sem registro */}
+      {vin && (
+        <section>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
+            {nVinculo}. Período Trabalhado sem Registro
+          </h2>
+
+          <p className="text-xs text-muted-foreground mb-4">
+            De {formatDateBR(vin.inicio)} a {formatDateBR(vin.fim)} — {vin.meses} meses, ao salário de {fmt(vin.salario)}.
+            Cada verba é apurada pelo devido e abatida do que foi comprovadamente pago.
+          </p>
+
+          {[
+          { titulo: "Salários", v: vin.salarios },
+          { titulo: "13º", v: vin.decimoTerceiro },
+          { titulo: "Férias + 1/3", v: vin.feriasComTerco },
+          { titulo: `FGTS não depositado (${aliquotaLabel})`, v: vin.fgts }].
+          map((linha) => (
+            <LinhaVerba
+              key={linha.titulo}
+              titulo={linha.titulo}
+              valor={linha.v.diferenca}
+              formula={`devido ${fmt(linha.v.devido)} − pago ${fmt(linha.v.recebido)} = ${fmt(linha.v.diferenca)}`}
+            />
+          ))}
+
+          {vin.outrosRecebidos > 0 && (
+            <LinhaVerba
+              titulo="Outros valores recebidos"
+              valor={-vin.outrosRecebidos}
+              formula={vin.outrosDescricao ? `Abatimento — ${vin.outrosDescricao}` : "Abatimento de valores pagos"}
+            />
+          )}
+
+          <SubtotalLinha titulo="Subtotal do Período sem Registro" valor={vin.total} />
+
+          {vin.excedente > 0 && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Os valores informados como pagos superam o devido em {fmt(vin.excedente)}; o subtotal não é reduzido abaixo de zero.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Cálculo das verbas rescisórias */}
       {t2 && (
         <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            3. Cálculo das Verbas Rescisórias
+            {nRescisorias}. Cálculo das Verbas Rescisórias
           </h2>
 
           <LinhaVerba
             titulo="Aviso prévio"
             valor={t2.avisoProvio}
-            formula={`${fmt(sal)} (1 salário)`}
+            formula={`${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = ${fmt(t2.avisoProvio)} — Lei 12.506/2011`}
           />
           <LinhaVerba
             titulo="13º sobre aviso"
@@ -195,6 +249,14 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             formula={`${fmt(sal)} (1 salário)`}
           />
 
+          {t2.jaRecebido > 0 && (
+            <LinhaVerba
+              titulo="Já recebido na saída"
+              valor={-t2.jaRecebido}
+              formula="Abatimento do aviso e demais verbas pagas na rescisão"
+            />
+          )}
+
           <SubtotalLinha titulo="Subtotal Verbas Rescisórias" valor={t2.total} />
         </section>
       )}
@@ -203,7 +265,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
       {mf && (
         <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {t2 ? "4" : "3"}. Multa de 40% do FGTS
+            {nMulta}. Multa de 40% do FGTS
           </h2>
 
           <LinhaVerba
@@ -214,8 +276,19 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           <LinhaVerba
             titulo="FGTS estimado do período já trabalhado"
             valor={mf.fgtsPeriodoContrato}
-            formula={`${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel} = ${fmt(mf.fgtsPeriodoContrato)}`}
+            formula={
+              mf.incluiPeriodoContrato === false ?
+                `${mf.mesesTrabalhados} meses de contrato fora da base — a multa de 40% sobre esse período já foi paga na rescisão` :
+                `${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel} = ${fmt(mf.fgtsPeriodoContrato)}`
+            }
           />
+          {mf.fgtsPeriodoVinculo > 0 && (
+            <LinhaVerba
+              titulo="FGTS devido no período sem registro"
+              valor={mf.fgtsPeriodoVinculo}
+              formula={`Apurado no item ${nVinculo}: ${fmt(mf.fgtsPeriodoVinculo)}`}
+            />
+          )}
           <div className="py-3 border-b border-border/60">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-medium text-foreground">Base total do FGTS</span>
@@ -226,6 +299,12 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             </p>
           </div>
           <SubtotalLinha titulo="Multa de 40% do FGTS" valor={mf.multa40} />
+
+          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+            {mf.incluiPeriodoContrato === false ?
+            "Reconhecida a nulidade da dispensa, o contrato se projeta até o fim da estabilidade, quando ocorre a dispensa sem justa causa. A multa de 40% sobre o FGTS do período trabalhado já foi quitada na rescisão, de modo que aqui se apura apenas a incidente sobre o FGTS do período de estabilidade." :
+            "Reconhecida a nulidade do ato, o contrato se projeta até o fim da estabilidade, quando ocorre a dispensa sem justa causa. Como nenhuma multa de 40% foi paga à época da saída, a base alcança o FGTS de todo o contrato somado ao do período de estabilidade."}
+          </p>
         </section>
       )}
 
@@ -236,7 +315,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           <span className="text-2xl font-bold text-foreground tabular-nums">{fmt(result.totalFinal)}</span>
         </div>
         <p className="text-xs text-muted-foreground mt-2 font-mono">
-          Composição: Indenização ({fmt(t1.total)}){t2 ? ` + Verbas Rescisórias (${fmt(t2.total)})` : ""}{mf ? ` + Multa 40% FGTS (${fmt(mf.multa40)})` : ""} = {fmt(result.totalFinal)}
+          Composição: Indenização ({fmt(t1.total)}){vin ? ` + Período sem Registro (${fmt(vin.total)})` : ""}{t2 ? ` + Verbas Rescisórias (${fmt(t2.total)})` : ""}{mf ? ` + Multa 40% FGTS (${fmt(mf.multa40)})` : ""} = {fmt(result.totalFinal)}
         </p>
       </section>
 

@@ -3,7 +3,7 @@ import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList } from "lucide-react";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
 import Logo from "@/components/Logo";
@@ -24,6 +24,7 @@ const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConce
   const t1 = result.tabela1;
   const t2 = result.tabela2;
   const mf = result.multaFgts;
+  const vin = result.vinculo;
   const aliquotaFgts = input.empregadaDomestica ? "11,2%" : "8%";
 
   let resumo = `Cliente: ${input.nome}
@@ -123,8 +124,8 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
             <span className="font-medium">{formatDateBR(input.demissao)}</span>
             <span className="text-muted-foreground">Data de concepção</span>
             <span className="font-medium">{formatDateBR(input.concepcao)}</span>
-            <span className="text-muted-foreground">Pediu a conta?</span>
-            <span className="font-medium">{input.pediuAConta ? "Sim" : "Não"}</span>
+            <span className="text-muted-foreground">Motivo da saída</span>
+            <span className="font-medium">{result.tipoRescisao}</span>
             {input.calcularMultaFgts && (
               <>
                 <span className="text-muted-foreground">Multa 40% FGTS</span>
@@ -201,6 +202,68 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardContent>
       </Card>
 
+      {/* Período sem registro */}
+      {vin && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-primary" />
+              Período sem registro ({vin.meses} meses)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              {formatDateBR(vin.inicio)} a {formatDateBR(vin.fim)} · salário de {formatBRL(vin.salario)}
+            </p>
+            <div className="rounded-lg overflow-hidden border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="text-left py-2.5 px-4 font-semibold">Verba</th>
+                    <th className="text-right py-2.5 px-3 font-semibold">Devido</th>
+                    <th className="text-right py-2.5 px-3 font-semibold">Pago</th>
+                    <th className="text-right py-2.5 px-4 font-semibold">Diferença</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                  { nome: "Salários", v: vin.salarios },
+                  { nome: "13º", v: vin.decimoTerceiro },
+                  { nome: "Férias + 1/3", v: vin.feriasComTerco },
+                  { nome: "FGTS não depositado", v: vin.fgts }].
+                  map((linha) => (
+                    <tr className="border-t" key={linha.nome}>
+                      <td className="py-2.5 px-4">{linha.nome}</td>
+                      <td className="py-2.5 px-3 text-right text-muted-foreground tabular-nums">{formatBRL(linha.v.devido)}</td>
+                      <td className="py-2.5 px-3 text-right text-muted-foreground tabular-nums">{formatBRL(linha.v.recebido)}</td>
+                      <td className="py-2.5 px-4 text-right font-medium tabular-nums">{formatBRL(linha.v.diferenca)}</td>
+                    </tr>
+                  ))}
+                  {vin.outrosRecebidos > 0 && (
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4" colSpan={3}>
+                        Outros valores recebidos
+                        {vin.outrosDescricao ? ` (${vin.outrosDescricao})` : ""}
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium tabular-nums">− {formatBRL(vin.outrosRecebidos)}</td>
+                    </tr>
+                  )}
+                  <tr className="border-t bg-primary/5">
+                    <td className="py-3 px-4 font-bold" colSpan={3}>Subtotal do período sem registro</td>
+                    <td className="py-3 px-4 text-right font-bold text-primary text-lg tabular-nums">{formatBRL(vin.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {vin.excedente > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Os valores informados como pagos superam o devido em {formatBRL(vin.excedente)}. O subtotal não fica negativo.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Cálculo das verbas rescisórias */}
       {t2 && (
         <Card>
@@ -221,7 +284,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                 </thead>
                 <tbody>
                   <tr className="border-t">
-                    <td className="py-2.5 px-4">Aviso prévio</td>
+                    <td className="py-2.5 px-4">
+                      Aviso prévio
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        {t2.avisoDias ?? 30} dias (Lei 12.506/2011)
+                      </span>
+                    </td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
                   </tr>
                   <tr className="border-t">
@@ -236,6 +304,12 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     <td className="py-2.5 px-4">Multa art. 477</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
                   </tr>
+                  {t2.jaRecebido > 0 && (
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">Já recebido na saída</td>
+                      <td className="py-2.5 px-4 text-right font-medium">− {formatBRL(t2.jaRecebido)}</td>
+                    </tr>
+                  )}
                   <tr className="border-t bg-primary/5">
                     <td className="py-3 px-4 font-bold">Subtotal Verbas Rescisórias</td>
                     <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(t2.total)}</td>
@@ -271,9 +345,22 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsRescisorio)}</td>
                   </tr>
                   <tr className="border-t">
-                    <td className="py-2.5 px-4">FGTS estimado do contrato ({mf.mesesTrabalhados} meses)</td>
+                    <td className="py-2.5 px-4">
+                      FGTS estimado do contrato ({mf.mesesTrabalhados} meses)
+                      {mf.incluiPeriodoContrato === false && (
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          Fora da base: a multa sobre esse período já foi paga na rescisão.
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsPeriodoContrato)}</td>
                   </tr>
+                  {mf.fgtsPeriodoVinculo > 0 && (
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">FGTS do período sem registro</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsPeriodoVinculo)}</td>
+                    </tr>
+                  )}
                   <tr className="border-t">
                     <td className="py-2.5 px-4 font-medium">Base total do FGTS</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.baseTotalFgts)}</td>

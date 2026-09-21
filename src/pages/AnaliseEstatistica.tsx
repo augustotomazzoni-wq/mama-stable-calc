@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  agruparPessoas,
+  mediaAparada,
+  mediaSimples,
+  cortePorPonta } from
+"@/lib/estatisticas";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,7 +46,7 @@ interface Registro {
   primeiroAtendimento: Date;
   salario: number | null;
   pediuAConta: boolean | null;
-  tipoSaida: "Pediu a conta" | "Dispensada" | "Desconhecido";
+  tipoSaida: "Pediu a conta" | "Dispensada" | "Fim de experiência" | "Desconhecido";
   totalIndenizacao: number | null;
   mesesIndenizacao: number | null;
   verbasRescisorias: number | null;
@@ -89,9 +96,10 @@ function faixaSalario(s: number | null): string {
 }
 const FAIXAS_SAL = ["Até 1 SM", "1–2 SM", "2–3 SM", "3–5 SM", "Acima de 5 SM"];
 
+type RegistroAgrupado = Registro & { cadastros: number };
+
 function media(arr: number[]): number {
-  if (!arr.length) return 0;
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
+  return mediaSimples(arr);
 }
 
 const AnaliseEstatistica = () => {
@@ -106,6 +114,7 @@ const AnaliseEstatistica = () => {
   const [faixaSalFilter, setFaixaSalFilter] = useState("todos");
   const [faixaIdadeFilter, setFaixaIdadeFilter] = useState("todos");
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [agruparPessoasIguais, setAgruparPessoasIguais] = useState(true);
 
   const carregar = async () => {
     setLoading(true);
@@ -132,6 +141,9 @@ const AnaliseEstatistica = () => {
       const salario = typeof di.salario === "number" ? di.salario : null;
       const pediuAConta = typeof di.pediuAConta === "boolean" ? di.pediuAConta : null;
       const tipoSaida: Registro["tipoSaida"] =
+        di.motivoSaida === "pedido_demissao" ? "Pediu a conta" :
+        di.motivoSaida === "dispensa_sem_justa_causa" ? "Dispensada" :
+        di.motivoSaida === "fim_experiencia" ? "Fim de experiência" :
         pediuAConta === true ? "Pediu a conta" :
         pediuAConta === false ? "Dispensada" : "Desconhecido";
       const totalIndenizacao = Number(row.valor_total_indenizacao) || (result?.tabela1?.total ?? null);
@@ -181,30 +193,59 @@ const AnaliseEstatistica = () => {
     });
   }, [regs, busca, dataIni, dataFim, statusFilter, tipoSaidaFilter, faixaSalFilter, faixaIdadeFilter]);
 
+  // ------------------------------------------------------------------
+  // Cadastros da mesma pessoa contam uma vez só.
+  // ------------------------------------------------------------------
+  const completude = (r: Registro): number => {
+    let pontos = 0;
+    if (r.nascimento) pontos += 1;
+    if (r.salario != null) pontos += 1;
+    if (r.admissao) pontos += 1;
+    if (r.demissao) pontos += 1;
+    if (r.totalIndenizacao != null) pontos += 1;
+    // Desempate pela ficha mais recente, sem superar o peso dos campos.
+    return pontos + r.primeiroAtendimento.getTime() / 1e16;
+  };
+
+  const grupos = useMemo(
+    () => agruparPessoas(filtrados, completude),
+    [filtrados],
+  );
+
+  const unicos: RegistroAgrupado[] = useMemo(() => {
+    if (!agruparPessoasIguais) return filtrados.map((r) => ({ ...r, cadastros: 1 }));
+    return grupos.map((g) => ({ ...g.principal, cadastros: g.quantidade }));
+  }, [agruparPessoasIguais, grupos, filtrados]);
+
+  const duplicadosOcultos = filtrados.length - unicos.length;
+
   // Cards
   const stats = useMemo(() => {
-    const inds = filtrados.map((r) => r.totalIndenizacao).filter((v): v is number => v != null && v > 0);
-    const sals = filtrados.map((r) => r.salario).filter((v): v is number => v != null && v > 0);
-    const idades = filtrados.map((r) => r.idade).filter((v): v is number => v != null);
-    const meses = filtrados.map((r) => r.mesesIndenizacao).filter((v): v is number => v != null);
-    const liquidos = filtrados
+    const inds = unicos.map((r) => r.totalIndenizacao).filter((v): v is number => v != null && v > 0);
+    const sals = unicos.map((r) => r.salario).filter((v): v is number => v != null && v > 0);
+    const idades = unicos.map((r) => r.idade).filter((v): v is number => v != null);
+    const meses = unicos.map((r) => r.mesesIndenizacao).filter((v): v is number => v != null);
+    const liquidos = unicos
       .filter((r) => !r.aindaEmpregada && r.tempoLiquidoDias != null)
       .map((r) => r.tempoLiquidoDias as number);
     return {
-      total: filtrados.length,
-      mediaInd: media(inds),
+      total: unicos.length,
+      mediaInd: mediaAparada(inds),
+      mediaIndSimples: mediaSimples(inds),
+      descartadosPorPonta: cortePorPonta(inds.length),
+      amostraInd: inds.length,
       maxInd: inds.length ? Math.max(...inds) : 0,
       minInd: inds.length ? Math.min(...inds) : 0,
-      mediaIdade: media(idades),
-      mediaSal: media(sals),
-      mediaMeses: media(meses),
-      mediaLiquidoDias: media(liquidos),
-      incompletos: filtrados.length - inds.length,
+      mediaIdade: mediaAparada(idades),
+      mediaSal: mediaAparada(sals),
+      mediaMeses: mediaAparada(meses),
+      mediaLiquidoDias: mediaAparada(liquidos),
+      incompletos: unicos.length - inds.length,
     };
-  }, [filtrados]);
+  }, [unicos]);
 
   // Charts data
-  const chartIndenizacao = filtrados
+  const chartIndenizacao = unicos
     .filter((r) => r.totalIndenizacao && r.totalIndenizacao > 0)
     .map((r) => ({
       nome: r.nome.split(" ")[0],
@@ -217,29 +258,31 @@ const AnaliseEstatistica = () => {
 
   const chartIdades = FAIXAS_IDADE.map((f) => ({
     faixa: f,
-    qtd: filtrados.filter((r) => faixaIdade(r.idade) === f).length,
+    qtd: unicos.filter((r) => faixaIdade(r.idade) === f).length,
   }));
 
-  const chartMeses = filtrados
+  const chartMeses = unicos
     .filter((r) => r.mesesIndenizacao != null)
     .map((r) => ({ nome: r.nome.split(" ")[0], nomeCompleto: r.nome, meses: r.mesesIndenizacao }));
 
   const chartSalarios = FAIXAS_SAL.map((f) => ({
     faixa: f,
-    qtd: filtrados.filter((r) => faixaSalario(r.salario) === f).length,
+    qtd: unicos.filter((r) => faixaSalario(r.salario) === f).length,
   }));
 
   const tipoSaidaData = (() => {
-    const pediu = filtrados.filter((r) => r.tipoSaida === "Pediu a conta").length;
-    const disp = filtrados.filter((r) => r.tipoSaida === "Dispensada").length;
+    const pediu = unicos.filter((r) => r.tipoSaida === "Pediu a conta").length;
+    const disp = unicos.filter((r) => r.tipoSaida === "Dispensada").length;
+    const exp = unicos.filter((r) => r.tipoSaida === "Fim de experiência").length;
     return [
       { name: "Dispensada", value: disp },
       { name: "Pediu a conta", value: pediu },
-    ];
+      { name: "Fim de experiência", value: exp },
+    ].filter((d) => d.value > 0);
   })();
-  const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--muted-foreground))"];
+  const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--muted-foreground))", "hsl(var(--primary) / 0.5)"];
 
-  const chartLiquido = filtrados
+  const chartLiquido = unicos
     .filter((r) => !r.aindaEmpregada && r.tempoLiquidoDias != null)
     .map((r) => ({
       nome: r.nome.split(" ")[0],
@@ -259,7 +302,7 @@ const AnaliseEstatistica = () => {
       "Saída", "Primeiro atendimento", "Tempo líquido (dias)", "Meses indenização",
       "Valor indenização", "Verbas rescisórias", "Total final", "Status",
     ];
-    const rows = filtrados.map((r) => [
+    const rows = unicos.map((r) => [
       r.nome,
       r.nascimento ? formatDateBR(r.nascimento) : "",
       r.idade ?? "",
@@ -284,7 +327,7 @@ const AnaliseEstatistica = () => {
   };
 
   const exportarExcel = () => {
-    const dados = filtrados.map((r) => ({
+    const dados = unicos.map((r) => ({
       Nome: r.nome,
       Nascimento: r.nascimento ? formatDateBR(r.nascimento) : "",
       Idade: r.idade ?? "",
@@ -399,6 +442,7 @@ const AnaliseEstatistica = () => {
                   <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="Pediu a conta">Pediu a conta</SelectItem>
                   <SelectItem value="Dispensada">Dispensada/Ganhou a conta</SelectItem>
+                  <SelectItem value="Fim de experiência">Fim de experiência</SelectItem>
                   <SelectItem value="Desconhecido">Desconhecido</SelectItem>
                 </SelectContent>
               </Select>
@@ -429,13 +473,37 @@ const AnaliseEstatistica = () => {
                 setTipoSaidaFilter("todos"); setFaixaSalFilter("todos"); setFaixaIdadeFilter("todos");
               }}>Limpar filtros</Button>
             </div>
+
+            <div className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 border-t pt-3 mt-1">
+              <div>
+                <Label htmlFor="agruparPessoas" className="text-sm font-medium cursor-pointer">
+                  Juntar cadastros da mesma pessoa
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {duplicadosOcultos > 0 ?
+                  `${duplicadosOcultos} ${duplicadosOcultos === 1 ? "cadastro repetido está sendo contado uma vez só" : "cadastros repetidos estão sendo contados uma vez só"}.` :
+                  "Nenhuma repetição encontrada entre os cadastros filtrados."}
+                </p>
+              </div>
+              <Switch id="agruparPessoas" checked={agruparPessoasIguais} onCheckedChange={setAgruparPessoasIguais} />
+            </div>
           </CardContent>
         </Card>
 
         {/* Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard icon={<Users />} label="Total de clientes" value={String(stats.total)} />
-          <StatCard icon={<DollarSign />} label="Indenização média" value={formatBRL(stats.mediaInd)} />
+          <StatCard
+            icon={<DollarSign />}
+            label="Indenização média"
+            value={formatBRL(stats.mediaInd)}
+            nota={
+            stats.descartadosPorPonta > 0 ?
+            `Sem os ${stats.descartadosPorPonta} menores e os ${stats.descartadosPorPonta} maiores · média cheia ${formatBRL(stats.mediaIndSimples)}` :
+            stats.amostraInd > 0 ?
+            "Poucos casos para descartar extremos: média cheia" :
+            undefined
+            } />
           <StatCard icon={<TrendingUp />} label="Maior indenização" value={formatBRL(stats.maxInd)} />
           <StatCard icon={<TrendingDown />} label="Menor indenização" value={formatBRL(stats.minInd)} />
           <StatCard icon={<Users />} label="Idade média" value={stats.mediaIdade ? `${stats.mediaIdade.toFixed(1)} anos` : "—"} />
@@ -546,7 +614,7 @@ const AnaliseEstatistica = () => {
             <CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4" /> Tempo líquido até procurar o escritório</CardTitle>
             <p className="text-xs text-muted-foreground">
               Média: {stats.mediaLiquidoDias ? `${stats.mediaLiquidoDias.toFixed(0)} dias (~${(stats.mediaLiquidoDias / 30).toFixed(1)} meses)` : "—"}
-              {" · "}Clientes ainda empregadas (excluídas da média): {filtrados.filter((r) => r.aindaEmpregada).length}
+              {" · "}Clientes ainda empregadas (excluídas da média): {unicos.filter((r) => r.aindaEmpregada).length}
             </p>
           </CardHeader>
           <CardContent className="h-[320px]">
@@ -578,12 +646,17 @@ const AnaliseEstatistica = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((r) => (
+                {unicos.map((r) => (
                   <tr key={r.id} className="border-t hover:bg-muted/30">
                     <td className="py-1.5 px-2">
                       <button className="text-primary hover:underline font-medium" onClick={() => navigate(`/consultas/${r.id}`)}>
                         {r.nome}
                       </button>
+                      {r.cadastros > 1 &&
+                    <span className="ml-2 text-[11px] text-muted-foreground" title="Cadastros parecidos contados como uma pessoa só">
+                          {r.cadastros} cadastros
+                        </span>
+                    }
                     </td>
                     <td className="py-1.5 px-2">{r.nascimento ? formatDateBR(r.nascimento) : "—"}</td>
                     <td className="py-1.5 px-2">{r.idade ?? "—"}</td>
@@ -612,7 +685,7 @@ const AnaliseEstatistica = () => {
                     </td>
                   </tr>
                 ))}
-                {!filtrados.length && (
+                {!unicos.length && (
                   <tr><td colSpan={13} className="text-center py-6 text-muted-foreground">Nenhum cadastro corresponde aos filtros.</td></tr>
                 )}
               </tbody>
@@ -637,7 +710,7 @@ const AnaliseEstatistica = () => {
   );
 };
 
-const StatCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+const StatCard = ({ icon, label, value, nota }: { icon: React.ReactNode; label: string; value: string; nota?: string }) => (
   <Card>
     <CardContent className="p-4">
       <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
@@ -645,6 +718,7 @@ const StatCard = ({ icon, label, value }: { icon: React.ReactNode; label: string
         {label}
       </div>
       <div className="text-xl font-bold tabular-nums">{value}</div>
+      {nota && <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{nota}</div>}
     </CardContent>
   </Card>
 );
