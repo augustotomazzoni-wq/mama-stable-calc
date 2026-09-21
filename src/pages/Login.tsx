@@ -51,13 +51,23 @@ const Login = ({ onLogin }: LoginProps) => {
     setLoading(true);
     try {
       if (modo === "primeiro-acesso") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: senha,
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        setAviso("Acesso criado. Entre com o e-mail e a senha que você acabou de definir.");
+
+        // Sem confirmação de e-mail no painel, o Supabase já devolve a sessão.
+        if (data.session && data.user) {
+          await registrarAcesso(data.user.id, data.user.email ?? email.trim(), "login");
+          onLogin?.();
+          return;
+        }
+
+        // Com confirmação ligada, a conta só vale depois do clique no link. É o
+        // que impede alguém de ocupar um e-mail liberado antes do dono.
+        setAviso("Acesso criado. Enviamos um link de confirmação para o seu e-mail: clique nele e depois entre com a sua senha.");
         setModo("entrar");
         setSenha("");
         return;
