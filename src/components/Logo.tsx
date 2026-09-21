@@ -12,10 +12,14 @@ const sizeMap = {
   lg: "h-[280px]",
 };
 
+const logoUrl = window.location.hostname === "localhost"
+  ? `https://id-preview--006e3153-a560-418e-9f15-b291eafbdab6.lovable.app${logoAsset.url}`
+  : logoAsset.url;
+
 const Logo = ({ className, size = "md" }: LogoProps) => (
   <img
-    src={logoAsset.url}
-    alt="Hoffmann & Tomazzoni Advogados"
+    src={logoUrl}
+    alt="Hoffmann & Tomazzoni Advocacia"
     className={cn(sizeMap[size], "w-auto object-contain", className)}
   />
 );
