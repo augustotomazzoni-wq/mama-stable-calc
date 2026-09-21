@@ -1,4 +1,4 @@
-import logo from "@/assets/logo-hoffmann-tomazzoni.svg";
+import logoAsset from "@/assets/logo-hoffmann-tomazzoni-2026.png.asset.json";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -14,7 +14,7 @@ const sizeMap = {
 
 const Logo = ({ className, size = "md" }: LogoProps) => (
   <img
-    src={logo}
+    src={logoAsset.url}
     alt="Hoffmann & Tomazzoni Advogados"
     className={cn(sizeMap[size], "w-auto object-contain", className)}
   />
