@@ -13,10 +13,14 @@ export function useSessao() {
   const [sessao, setSessao] = useState<Session | null>(null);
   const [papel, setPapel] = useState<Papel | undefined>(undefined);
   const [carregando, setCarregando] = useState(true);
+  // Quem volta pelo link de "Esqueci minha senha" chega logado, mas precisa
+  // definir a senha nova antes de usar o sistema.
+  const [recuperandoSenha, setRecuperandoSenha] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, nova) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, nova) => {
       setSessao(nova);
+      if (evento === "PASSWORD_RECOVERY") setRecuperandoSenha(true);
       if (!nova) setPapel(null);
     });
 
@@ -52,5 +56,7 @@ export function useSessao() {
     ehAdmin: papel === "admin",
     carregandoPapel: papel === undefined,
     carregando,
+    recuperandoSenha,
+    concluirRecuperacao: () => setRecuperandoSenha(false),
   };
 }
