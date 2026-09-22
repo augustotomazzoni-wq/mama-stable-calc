@@ -54,6 +54,10 @@ const NovaSenha = ({ onConcluir }: { onConcluir: () => void }) => {
       setErro("A senha precisa ter ao menos 6 caracteres.");
       return;
     }
+    if (senha === "123456") {
+      setErro("Escolha uma senha diferente da senha inicial.");
+      return;
+    }
     if (senha !== confirmacao) {
       setErro("As duas senhas não conferem.");
       return;
