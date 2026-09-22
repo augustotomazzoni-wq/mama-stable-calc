@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle } from
 "@/components/ui/alert-dialog";
-import { ArrowLeft, LogOut, UserPlus, ShieldCheck, ShieldOff, Trash2, History, Users } from "lucide-react";
+import { ArrowLeft, LogOut, UserPlus, ShieldCheck, ShieldOff, Trash2, History, Users, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 
@@ -40,6 +40,7 @@ interface UsuarioLinha {
   usado_em: string | null;
   tem_conta: boolean;
   ultimo_acesso: string | null;
+  senha_inicial?: boolean;
 }
 
 interface AcessoLinha {
@@ -53,7 +54,22 @@ function traduzErroRpc(mensagem: string): string {
   if (/ULTIMO_ADMIN/.test(mensagem)) return "Este é o único administrador. Promova outra pessoa antes de mudar este acesso.";
   if (/APENAS_ADMIN/.test(mensagem)) return "Só um administrador pode fazer isso.";
   if (/duplicate key|unique/i.test(mensagem)) return "Esse e-mail já está na lista.";
+  if (/EMAIL_NAO_AUTORIZADO/.test(mensagem)) return "Libere o e-mail na lista antes de criar a conta.";
+  if (/ACESSO_REVOGADO/.test(mensagem)) return "Reative o acesso antes de criar a conta.";
+  if (/NAO_AUTENTICADO/.test(mensagem)) return "Sua sessão expirou. Entre novamente.";
+  if (/CONFIGURACAO_INDISPONIVEL/.test(mensagem)) return "A função de criar usuários não está configurada no servidor.";
   return mensagem;
+}
+
+/** O invoke devolve "non-2xx status"; a mensagem real vem no corpo da resposta. */
+async function mensagemDaFuncao(error: any): Promise<string> {
+  try {
+    const corpo = await error?.context?.json?.();
+    if (corpo?.error) return traduzErroRpc(String(corpo.error));
+  } catch {
+    // corpo não era JSON: fica a mensagem genérica
+  }
+  return traduzErroRpc(error?.message ?? "Erro ao falar com o servidor.");
 }
 
 function formataDataHora(iso: string | null): string {
@@ -75,6 +91,7 @@ const Usuarios = () => {
   const [salvando, setSalvando] = useState(false);
 
   const [paraRemover, setParaRemover] = useState<UsuarioLinha | null>(null);
+  const [paraRedefinir, setParaRedefinir] = useState<UsuarioLinha | null>(null);
 
   const carregar = async () => {
     setCarregando(true);
@@ -129,7 +146,7 @@ const Usuarios = () => {
       body: { email },
     });
     if (criarError) {
-      toast.error("O e-mail foi liberado, mas a conta não pôde ser criada: " + traduzErroRpc(criarError.message));
+      toast.error("O e-mail foi liberado, mas a conta não pôde ser criada: " + (await mensagemDaFuncao(criarError)));
       carregar();
       return;
     }
@@ -138,6 +155,27 @@ const Usuarios = () => {
     setNovoEmail("");
     setNovoNome("");
     setNovoPapel("usuario");
+    carregar();
+  };
+
+  /**
+   * Cria a conta de quem só está na lista e devolve a senha inicial a quem já
+   * tem conta — é assim que alguém volta a entrar sem depender de e-mail.
+   */
+  const garantirAcesso = async (linha: UsuarioLinha) => {
+    setParaRedefinir(null);
+    const { data, error } = await supabase.functions.invoke("criar-usuario", {
+      body: { email: linha.email },
+    });
+    if (error) {
+      toast.error(await mensagemDaFuncao(error));
+      return;
+    }
+    toast.success(
+      (data as { acao?: string } | null)?.acao === "redefinida" ?
+      "Senha devolvida para 123456. A pessoa vai criar uma nova ao entrar." :
+      "Conta criada. A senha inicial é 123456.",
+    );
     carregar();
   };
 
@@ -294,6 +332,9 @@ const Usuarios = () => {
                           </td>
                           <td className="py-2.5 px-2">
                             <Badge variant={status.variante}>{status.texto}</Badge>
+                            {l.senha_inicial &&
+                        <span className="block text-[11px] text-muted-foreground mt-0.5">senha inicial</span>
+                        }
                           </td>
                           <td className="py-2.5 px-2 text-muted-foreground">
                             {formataDataHora(l.ultimo_acesso)}
@@ -316,6 +357,25 @@ const Usuarios = () => {
 
                                 {l.ativo ? "Revogar" : "Reativar"}
                               </Button>
+                              {l.tem_conta ?
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Devolver a senha inicial"
+                            onClick={() => setParaRedefinir(l)}>
+
+                                  <KeyRound className="w-4 h-4" />
+                                </Button> :
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            title="Criar a conta com a senha inicial"
+                            onClick={() => garantirAcesso(l)}>
+
+                                  Criar conta
+                                </Button>
+                          }
                               <Button
                               size="sm"
                               variant="ghost"
@@ -378,6 +438,23 @@ const Usuarios = () => {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!paraRedefinir} onOpenChange={(aberto) => !aberto && setParaRedefinir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Devolver a senha inicial de {paraRedefinir?.nome || paraRedefinir?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A senha atual deixa de funcionar na hora. A pessoa entra com 123456 e escolhe uma nova senha antes de usar o sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => paraRedefinir && garantirAcesso(paraRedefinir)}>
+              Devolver senha inicial
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!paraRemover} onOpenChange={(aberto) => !aberto && setParaRemover(null)}>
         <AlertDialogContent>
