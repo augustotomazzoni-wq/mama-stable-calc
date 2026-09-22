@@ -12,6 +12,7 @@ export type Papel = "admin" | "usuario" | null;
 export function useSessao() {
   const [sessao, setSessao] = useState<Session | null>(null);
   const [papel, setPapel] = useState<Papel | undefined>(undefined);
+  const [deveTrocarSenha, setDeveTrocarSenha] = useState<boolean | undefined>(undefined);
   const [carregando, setCarregando] = useState(true);
   // Quem volta pelo link de "Esqueci minha senha" chega logado, mas precisa
   // definir a senha nova antes de usar o sistema.
@@ -21,7 +22,10 @@ export function useSessao() {
     const { data: sub } = supabase.auth.onAuthStateChange((evento, nova) => {
       setSessao(nova);
       if (evento === "PASSWORD_RECOVERY") setRecuperandoSenha(true);
-      if (!nova) setPapel(null);
+      if (!nova) {
+        setPapel(null);
+        setDeveTrocarSenha(undefined);
+      }
     });
 
     supabase.auth.getSession().then(({ data }) => {
@@ -37,14 +41,19 @@ export function useSessao() {
   useEffect(() => {
     if (!userId) {
       setPapel(null);
+      setDeveTrocarSenha(undefined);
       return;
     }
     let cancelado = false;
     (async () => {
-      const { data } = await db.from("user_roles").select("role").eq("user_id", userId);
+      const [papeisResp, perfilResp] = await Promise.all([
+        db.from("user_roles").select("role").eq("user_id", userId),
+        db.from("profiles").select("deve_trocar_senha").eq("user_id", userId).maybeSingle(),
+      ]);
       if (cancelado) return;
-      const papeis = (data ?? []).map((r: { role: string }) => r.role);
+      const papeis = (papeisResp.data ?? []).map((r: { role: string }) => r.role);
       setPapel(papeis.includes("admin") ? "admin" : papeis.length > 0 ? "usuario" : null);
+      setDeveTrocarSenha(perfilResp.data?.deve_trocar_senha === true);
     })();
     return () => { cancelado = true; };
   }, [userId]);
@@ -55,8 +64,12 @@ export function useSessao() {
     papel,
     ehAdmin: papel === "admin",
     carregandoPapel: papel === undefined,
+    deveTrocarSenha,
     carregando,
     recuperandoSenha,
-    concluirRecuperacao: () => setRecuperandoSenha(false),
+    concluirTrocaSenha: () => {
+      setRecuperandoSenha(false);
+      setDeveTrocarSenha(false);
+    },
   };
 }

@@ -125,7 +125,16 @@ const Usuarios = () => {
       return;
     }
 
-    toast.success("Acesso liberado. A pessoa cria a própria senha em 'Primeiro acesso'.");
+    const { error: criarError } = await supabase.functions.invoke("criar-usuario", {
+      body: { email },
+    });
+    if (criarError) {
+      toast.error("O e-mail foi liberado, mas a conta não pôde ser criada: " + traduzErroRpc(criarError.message));
+      carregar();
+      return;
+    }
+
+    toast.success("Usuário cadastrado. A senha inicial é 123456.");
     setNovoEmail("");
     setNovoNome("");
     setNovoPapel("usuario");
@@ -236,8 +245,8 @@ const Usuarios = () => {
               </Button>
             </form>
             <p className="text-xs text-muted-foreground mt-3">
-              A pessoa entra na tela de login, escolhe "Primeiro acesso" e define a própria senha.
-              Quem não estiver nesta lista não consegue criar acesso.
+               O primeiro acesso é feito com a senha 123456. Antes de entrar no sistema,
+               a pessoa deverá cadastrar e confirmar uma nova senha.
             </p>
           </CardContent>
         </Card>

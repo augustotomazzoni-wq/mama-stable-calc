@@ -13,22 +13,16 @@ interface LoginProps {
   onLogin?: () => void;
 }
 
-type Modo = "entrar" | "primeiro-acesso";
-
 /** As mensagens do Supabase vêm em inglês e técnicas demais para o dia a dia. */
-function traduzErro(mensagem: string, modo: Modo): string {
+function traduzErro(mensagem: string): string {
   if (/invalid login credentials/i.test(mensagem)) return "E-mail ou senha incorretos.";
   if (/email not confirmed/i.test(mensagem)) return "E-mail ainda não confirmado. Fale com o administrador.";
   if (/rate limit|too many/i.test(mensagem)) return "Muitas tentativas seguidas. Aguarde um instante.";
-  if (/already registered|user already/i.test(mensagem)) return "Esse e-mail já tem senha cadastrada. Use a opção de entrar.";
-  if (/signups? not allowed|disabled/i.test(mensagem)) return "O cadastro está bloqueado no painel. Fale com o administrador.";
-  // O banco recusa e-mail fora da lista de autorizados, e o erro chega genérico.
-  if (modo === "primeiro-acesso") return "Não foi possível criar o acesso. Confirme com o administrador se o seu e-mail foi liberado.";
+  if (/signups? not allowed|disabled/i.test(mensagem)) return "O acesso está bloqueado. Fale com o administrador.";
   return mensagem;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
-  const [modo, setModo] = useState<Modo>("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -40,39 +34,11 @@ const Login = ({ onLogin }: LoginProps) => {
     setAviso(null);
   };
 
-  const trocarModo = (novo: Modo) => {
-    setModo(novo);
-    limpaMensagens();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     limpaMensagens();
     setLoading(true);
     try {
-      if (modo === "primeiro-acesso") {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: senha,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-
-        // Sem confirmação de e-mail no painel, o Supabase já devolve a sessão.
-        if (data.session && data.user) {
-          await registrarAcesso(data.user.id, data.user.email ?? email.trim(), "login");
-          onLogin?.();
-          return;
-        }
-
-        // Com confirmação ligada, a conta só vale depois do clique no link. É o
-        // que impede alguém de ocupar um e-mail liberado antes do dono.
-        setAviso("Acesso criado. Enviamos um link de confirmação para o seu e-mail: clique nele e depois entre com a sua senha.");
-        setModo("entrar");
-        setSenha("");
-        return;
-      }
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: senha,
@@ -84,7 +50,7 @@ const Login = ({ onLogin }: LoginProps) => {
       }
       onLogin?.();
     } catch (err: any) {
-      setErro(traduzErro(err?.message ?? "Não foi possível entrar.", modo));
+      setErro(traduzErro(err?.message ?? "Não foi possível entrar."));
     } finally {
       setLoading(false);
     }
@@ -104,13 +70,11 @@ const Login = ({ onLogin }: LoginProps) => {
       if (error) throw error;
       setAviso("Link de redefinição enviado. Confira a caixa de entrada e o spam.");
     } catch (err: any) {
-      setErro(traduzErro(err?.message ?? "Não foi possível enviar o link.", modo));
+      setErro(traduzErro(err?.message ?? "Não foi possível enviar o link."));
     } finally {
       setLoading(false);
     }
   };
-
-  const primeiroAcesso = modo === "primeiro-acesso";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -121,9 +85,7 @@ const Login = ({ onLogin }: LoginProps) => {
             Cálculos Gestante
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {primeiroAcesso ?
-            "Defina a senha do seu acesso" :
-            "Acesso restrito à equipe do escritório"}
+            Acesso restrito à equipe do escritório
           </p>
         </div>
 
@@ -151,21 +113,15 @@ const Login = ({ onLogin }: LoginProps) => {
               <div className="space-y-2">
                 <Label htmlFor="senha" className="flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                  {primeiroAcesso ? "Crie sua senha" : "Senha"}
+                  Senha
                 </Label>
                 <Input
                   id="senha"
                   type="password"
                   placeholder="********"
-                  autoComplete={primeiroAcesso ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                   value={senha}
                   onChange={(e) => {setSenha(e.target.value);limpaMensagens();}} />
-
-                {primeiroAcesso &&
-                <p className="text-xs text-muted-foreground">
-                    Só funciona se o administrador já tiver liberado o seu e-mail.
-                  </p>
-                }
               </div>
 
               {erro &&
@@ -181,29 +137,18 @@ const Login = ({ onLogin }: LoginProps) => {
               }
 
               <Button type="submit" className="w-full" disabled={loading || !email || !senha}>
-                {loading ? "Aguarde..." : primeiroAcesso ? "Criar acesso" : "Entrar"}
+                {loading ? "Aguarde..." : "Entrar"}
               </Button>
 
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => trocarModo(primeiroAcesso ? "entrar" : "primeiro-acesso")}
-                  disabled={loading}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
-
-                  {primeiroAcesso ? "Já tenho senha" : "Primeiro acesso"}
-                </button>
-
-                {!primeiroAcesso &&
+              <div className="flex justify-end pt-1">
                 <button
                   type="button"
                   onClick={handleRecuperarSenha}
                   disabled={loading}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
 
-                    Esqueci minha senha
-                  </button>
-                }
+                  Esqueci minha senha
+                </button>
               </div>
             </form>
           </CardContent>
