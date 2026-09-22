@@ -1,21 +1,28 @@
 import * as XLSX from 'xlsx';
-import { CalcInput, CalcResult, VinculoVerba } from './calculator';
+import { CalcInput, CalcResult, VinculoVerba, TIPO_REGISTRO_LABEL } from './calculator';
 import { formatDateBR } from './dateUtils';
+import { pedidosSemValor, tipoRegistroDe, rotuloSalario, rotuloSaida } from './pedidos';
 
 export function exportCalculoGestante(input: CalcInput, result: CalcResult): void {
   const wb = XLSX.utils.book_new();
   const aliquotaLabel = input.empregadaDomestica ? '11,2%' : '8%';
   const meses = result.mesesEstabilidade;
-  const sal = input.salario;
+  // Estabilidade e rescisão usam o piso quando ele supera o salário pago.
+  const sal = result.salarioBase ?? input.salario;
+  const tipoRegistro = tipoRegistroDe(input, result);
+  const op = result.opcionais ?? null;
+  const alertas = result.alertas ?? [];
 
   // ===== Aba Parametros =====
   const parametros: (string | number)[][] = [
     ['Parâmetro', 'Valor'],
     ['Nome da reclamante', input.nome],
     ['Data de nascimento', input.nascimento ? formatDateBR(input.nascimento) : 'Não informada'],
-    ['Salário mensal', sal],
+    [rotuloSalario(tipoRegistro), input.salario],
+    ['Registro', TIPO_REGISTRO_LABEL[tipoRegistro]],
+    ['Piso usado nas verbas', sal > input.salario ? sal : 'Não aplicável'],
     ['Data de admissão', input.admissao ? formatDateBR(input.admissao) : 'Não informada'],
-    ['Data da demissão', formatDateBR(input.demissao)],
+    [rotuloSaida(tipoRegistro), formatDateBR(input.demissao)],
     ['Data da concepção', formatDateBR(input.concepcao)],
     ['Data do parto / previsão', formatDateBR(result.previsaoParto)],
     ['Empregada doméstica', input.empregadaDomestica ? 'Sim' : 'Não'],
@@ -23,6 +30,7 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     ['Período sem registro', result.vinculo ? `${formatDateBR(result.vinculo.inicio)} a ${formatDateBR(result.vinculo.fim)}` : 'Não aplicável'],
     ['Meses sem registro', result.vinculo ? result.vinculo.meses : 'Não aplicável'],
     ['Salário no período sem registro', result.vinculo ? result.vinculo.salario : 'Não aplicável'],
+    ['Salários do período sem registro pagos', result.vinculo ? (result.vinculo.salariosPresumidosPagos ? 'Sim, mês a mês' : 'Não') : 'Não aplicável'],
     ['Calcular multa 40% FGTS', input.calcularMultaFgts ? 'Sim' : 'Não'],
     ['Meses até o parto (automático)', result.mesesEstabilidadeAuto - 5],
     ['Meses pós-parto (fixo)', 5],
@@ -77,6 +85,22 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
       rows.push(['Vínculo', 'Outros valores recebidos', 'Abatimento informado pelo usuário', `− ${fmt(vin.outrosRecebidos)}`, -vin.outrosRecebidos, 'R$', vin.outrosDescricao ?? '']);
     }
     rows.push(['Vínculo', 'Subtotal do Período sem Registro', 'Soma das diferenças ainda devidas', 'Salários + 13º + Férias + FGTS − abatimentos', vin.total, 'R$', '']);
+
+    const baseVinculo = vin.salarioBase ?? vin.salario;
+    for (const d of vin.decimoPorAno ?? []) {
+      rows.push(['Vínculo', `13º de ${d.ano}`, '1/12 por mês com 15 dias ou mais (Lei 4.090/62)', `(${fmt(baseVinculo)} / 12) × ${d.meses}`, d.valor, 'R$', d.prescrito ? 'Prescrito — fora do total' : '']);
+    }
+    for (const f of vin.periodosFerias ?? []) {
+      rows.push([
+        'Vínculo',
+        `Férias ${formatDateBR(f.inicio)} a ${formatDateBR(f.fim)}`,
+        f.completo ? 'Período aquisitivo completo, com 1/3' : 'Período aquisitivo incompleto, proporcional com 1/3',
+        f.dobro ? `${fmt(f.valorSimples)} × 2` : `(${fmt(baseVinculo)} / 12) × ${f.meses} × 4/3`,
+        f.valor,
+        'R$',
+        [f.dobro ? 'Em dobro: prazo de concessão vencido (CLT 137)' : '', f.prescrito ? 'Prescrito — fora do total' : ''].filter(Boolean).join('; '),
+      ]);
+    }
   }
 
   if (t2) {
@@ -95,16 +119,32 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     rows.push(
       ['', '', '', '', '', '', ''],
       ['Multa FGTS', 'FGTS sobre verbas indenizatórias', 'FGTS apurado na indenização', `Valor da indenização: ${fmt(mf.fgtsRescisorio)}`, mf.fgtsRescisorio, 'R$', ''],
-      ['Multa FGTS', 'FGTS estimado do contrato', 'FGTS acumulado no período trabalhado', mf.incluiPeriodoContrato === false ? `${mf.mesesTrabalhados} meses fora da base` : `${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel}`, mf.fgtsPeriodoContrato, 'R$', mf.incluiPeriodoContrato === false ? 'Multa de 40% sobre esse período já paga na rescisão' : ''],
+      ...(input.admissao ?
+        [['Multa FGTS', 'FGTS estimado do contrato registrado', 'FGTS acumulado no período registrado', mf.incluiPeriodoContrato === false ? `${mf.mesesTrabalhados} meses fora da base` : `${mf.mesesTrabalhados} meses × ${fmt(input.salario)} × ${aliquotaLabel}`, mf.fgtsPeriodoContrato, 'R$', mf.incluiPeriodoContrato === false ? 'Multa de 40% sobre esse período já paga na rescisão' : '']] :
+        []),
       ['Multa FGTS', 'FGTS do período sem registro', 'FGTS devido e nunca depositado', `Apurado no grupo Vínculo`, mf.fgtsPeriodoVinculo ?? 0, 'R$', ''],
       ['Multa FGTS', 'Base total do FGTS', 'Soma dos FGTS que compõem a base', `${fmt(mf.fgtsRescisorio)} + ${fmt(mf.fgtsPeriodoContrato)} + ${fmt(mf.fgtsPeriodoVinculo ?? 0)}`, mf.baseTotalFgts, 'R$', ''],
       ['Multa FGTS', 'Multa de 40%', 'Multa de 40% sobre base total', `${fmt(mf.baseTotalFgts)} × 40%`, mf.multa40, 'R$', ''],
     );
   }
 
+  if (op) {
+    rows.push(['', '', '', '', '', '', '']);
+    if (op.multa467 > 0) {
+      rows.push(['Adicionais', 'Multa art. 467', '50% sobre o aviso prévio e reflexos', '50% × rescisórias', op.multa467, 'R$', 'CLT 467']);
+    }
+    if (op.seguroDesemprego > 0) {
+      rows.push(['Adicionais', 'Seguro-desemprego', 'Indenização substitutiva das parcelas', 'Valor informado', op.seguroDesemprego, 'R$', 'Súm. 389, II, TST']);
+    }
+    if (op.outros > 0) {
+      rows.push(['Adicionais', op.outrosDescricao || 'Outros pedidos', 'Valor arbitrado', 'Valor informado', op.outros, 'R$', '']);
+    }
+    rows.push(['Adicionais', 'Subtotal Pedidos Adicionais', 'Soma dos pedidos adicionais', '', op.total, 'R$', '']);
+  }
+
   rows.push(
     ['', '', '', '', '', '', ''],
-    ['TOTAL', 'Total Geral', 'Soma final de todas as verbas', `Indenização${vin ? ' + Período sem Registro' : ''}${t2 ? ' + Rescisórias' : ''}${mf ? ' + Multa 40%' : ''}`, result.totalFinal, 'R$', ''],
+    ['TOTAL', 'Total Geral', 'Soma final de todas as verbas', `Indenização${vin ? ' + Período sem Registro' : ''}${t2 ? ' + Rescisórias' : ''}${mf ? ' + Multa 40%' : ''}${op ? ' + Adicionais' : ''}`, result.totalFinal, 'R$', ''],
   );
 
   const wsMem = XLSX.utils.aoa_to_sheet(rows);
@@ -149,6 +189,9 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     [vin ?
       `Período sem registro de ${formatDateBR(vin.inicio)} a ${formatDateBR(vin.fim)} (${vin.meses} meses): verbas apuradas pelo devido e abatidas do que foi comprovadamente pago.` :
       'Sem pedido de reconhecimento de vínculo neste cálculo.'],
+    [`Registro: ${TIPO_REGISTRO_LABEL[tipoRegistro]}.`],
+    ...pedidosSemValor(input, result).map((pedido) => [`Pedido sem valor: ${pedido}`]),
+    ...alertas.map((a) => [`ATENÇÃO: ${a.mensagem}`]),
     ['Tabela elaborada por Dr. Augusto Tomazzoni Lubenow — OAB 133519.'],
     [`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`],
   ];
@@ -173,7 +216,15 @@ function flattenObject(obj: any, prefix = ''): Record<string, any> {
     const val = obj[key];
     if (val instanceof Date) {
       result[path] = val;
-    } else if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+    } else if (Array.isArray(val)) {
+      val.forEach((item, i) => {
+        if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+          Object.assign(result, flattenObject(item, `${path}.${i}`));
+        } else {
+          result[`${path}.${i}`] = item;
+        }
+      });
+    } else if (val !== null && typeof val === 'object') {
       Object.assign(result, flattenObject(val, path));
     } else {
       result[path] = val;

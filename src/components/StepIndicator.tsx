@@ -8,14 +8,14 @@ interface StepIndicatorProps {
 
 const StepIndicator = ({ currentStep, steps }: StepIndicatorProps) => {
   return (
-    <div className="flex items-center justify-center gap-2 mb-8">
+    <div className="flex items-start justify-center gap-1.5 sm:gap-2 mb-8">
       {steps.map((label, i) => {
         const step = i + 1;
         const isActive = step === currentStep;
         const isDone = step < currentStep;
 
         return (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-start gap-1.5 sm:gap-2">
             <div className="flex flex-col items-center gap-1">
               <div
                 className={cn(
@@ -28,7 +28,8 @@ const StepIndicator = ({ currentStep, steps }: StepIndicatorProps) => {
                 {isDone ? <Check className="w-4 h-4" /> : step}
               </div>
               <span className={cn(
-                "text-xs font-medium",
+                // No celular, com quatro passos, o rótulo quebra em duas linhas.
+                "text-[11px] sm:text-xs font-medium text-center leading-tight max-w-[4.5rem] sm:max-w-none",
                 isActive ? "text-foreground" : "text-muted-foreground"
               )}>
                 {label}
@@ -36,7 +37,8 @@ const StepIndicator = ({ currentStep, steps }: StepIndicatorProps) => {
             </div>
             {i < steps.length - 1 && (
               <div className={cn(
-                "w-12 h-0.5 mb-5",
+                // Alinhado ao centro do círculo, qualquer que seja a altura do rótulo.
+                "w-5 sm:w-12 h-0.5 mt-[17px] shrink-0",
                 step < currentStep ? "bg-primary" : "bg-muted"
               )} />
             )}

@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { calculate, resolveMotivoSaida, calcAvisoDias, CalcInput, MotivoSaida, VinculoRecebido } from "@/lib/calculator";
+import {
+  calculate,
+  resolveMotivoSaida,
+  resolveTipoRegistro,
+  calcAvisoDias,
+  CalcInput,
+  MotivoSaida,
+  VinculoRecebido } from
+"@/lib/calculator";
 
 /**
  * Caso-base: salário R$ 2.000, contrato de 01/02/2025 a 01/08/2025 (6 meses)
@@ -23,17 +31,26 @@ function makeInput(motivoSaida: MotivoSaida, overrides: Partial<CalcInput> = {})
     empregadaDomestica: false,
     admissao: new Date(2025, 1, 1),
     calcularMultaFgts: true,
+    dataReferencia: new Date(2025, 8, 1),
     ...overrides,
   };
 }
 
 function makeVinculo(
-  overrides: { inicio?: Date; fim?: Date; salario?: number; recebido?: Partial<VinculoRecebido> } = {},
+  overrides: {
+    inicio?: Date;
+    fim?: Date;
+    salario?: number;
+    recebiaSalario?: boolean;
+    recebido?: Partial<VinculoRecebido>;
+  } = {},
 ) {
   return {
     inicio: overrides.inicio ?? new Date(2024, 0, 1),
-    fim: overrides.fim ?? new Date(2024, 6, 1),
+    // Último dia trabalhado, contado por inteiro: janeiro a junho, 6 meses.
+    fim: overrides.fim ?? new Date(2024, 5, 30),
     salario: overrides.salario ?? 2000,
+    recebiaSalario: overrides.recebiaSalario,
     recebido: {
       salarios: 0,
       decimoTerceiro: 0,
@@ -152,7 +169,8 @@ describe("aviso prévio proporcional (Lei 12.506/2011)", () => {
 });
 
 /**
- * Período sem registro de 01/01/2024 a 01/07/2024 (6 meses) a R$ 2.000:
+ * Período sem registro de 01/01/2024 a 30/06/2024 (6 meses) a R$ 2.000, sem
+ * salário presumido pago (o padrão de cálculos antigos):
  * salários 12.000 · 13º 1.000 · férias + 1/3 1.333,33 · FGTS 1.146,67
  * = 15.480,00 devidos.
  */

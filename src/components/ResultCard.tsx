@@ -1,9 +1,11 @@
-import { CalcInput, CalcResult } from "@/lib/calculator";
+import { CalcInput, CalcResult, TIPO_REGISTRO_LABEL } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
 import { exportCalculoGestante } from "@/lib/exportCalculoGestante";
+import { pedidosSemValor, tipoRegistroDe, rotuloSalario, rotuloSaida } from "@/lib/pedidos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList, Briefcase } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Copy, RotateCcw, Calendar, DollarSign, FileText, Scale, Shield, ArrowLeft, Home, Printer, Download, BookOpen, ClipboardList, Briefcase, AlertTriangle, Gavel, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { Baby } from "lucide-react";
 import Logo from "@/components/Logo";
@@ -25,11 +27,20 @@ const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConce
   const t2 = result.tabela2;
   const mf = result.multaFgts;
   const vin = result.vinculo;
+  const op = result.opcionais ?? null;
+  const alertas = result.alertas ?? [];
+  const tipoRegistro = tipoRegistroDe(input, result);
+  const semRegistro = tipoRegistro === "sem_registro";
+  const pedidos = pedidosSemValor(input, result);
+  const salarioBase = result.salarioBase ?? input.salario;
+  const pisoAplicado = salarioBase > input.salario;
+  const periodosEmDobro = (vin?.periodosFerias ?? []).filter((p) => p.dobro && !p.prescrito).length;
   const aliquotaFgts = input.empregadaDomestica ? "11,2%" : "8%";
 
   let resumo = `Cliente: ${input.nome}
-${input.nascimento ? `Nascimento: ${formatDateBR(input.nascimento)}\n` : ""}Salário: ${formatBRL(input.salario)}
-Demissão: ${formatDateBR(input.demissao)}
+${input.nascimento ? `Nascimento: ${formatDateBR(input.nascimento)}\n` : ""}Registro: ${TIPO_REGISTRO_LABEL[tipoRegistro]}
+${rotuloSalario(tipoRegistro)}: ${formatBRL(input.salario)}${pisoAplicado ? ` (verbas sobre o piso de ${formatBRL(salarioBase)})` : ""}
+${vin ? `Período sem registro: ${formatDateBR(vin.inicio)} a ${formatDateBR(vin.fim)}\n` : ""}${rotuloSaida(tipoRegistro)}: ${formatDateBR(input.demissao)}
 Concepção: ${formatDateBR(input.concepcao)}
 Previsão do parto: ${formatDateBR(result.previsaoParto)}
 Estabilidade até: ${formatDateBR(result.fimEstabilidade)}
@@ -42,6 +53,17 @@ Cálculo de Indenização:
 - Férias + 1/3: ${formatBRL(t1.feriasComTerco)}
 - FGTS (${aliquotaFgts}): ${formatBRL(t1.fgts)}
 Subtotal Indenização: ${formatBRL(t1.total)}`;
+
+  if (vin) {
+    resumo += `
+
+Período sem registro (${vin.meses} meses) — devido / pago / diferença:
+- Salários: ${formatBRL(vin.salarios.devido)} / ${formatBRL(vin.salarios.recebido)} / ${formatBRL(vin.salarios.diferenca)}
+- 13º: ${formatBRL(vin.decimoTerceiro.devido)} / ${formatBRL(vin.decimoTerceiro.recebido)} / ${formatBRL(vin.decimoTerceiro.diferenca)}
+- Férias + 1/3: ${formatBRL(vin.feriasComTerco.devido)} / ${formatBRL(vin.feriasComTerco.recebido)} / ${formatBRL(vin.feriasComTerco.diferenca)}
+- FGTS: ${formatBRL(vin.fgts.devido)} / ${formatBRL(vin.fgts.recebido)} / ${formatBRL(vin.fgts.diferenca)}
+Subtotal do período sem registro: ${formatBRL(vin.total)}`;
+  }
 
   if (t2) {
     resumo += `
@@ -59,9 +81,28 @@ Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
 
 Multa 40% FGTS:
 - FGTS sobre indenização: ${formatBRL(mf.fgtsRescisorio)}
-- FGTS estimado do contrato: ${formatBRL(mf.fgtsPeriodoContrato)}
-- Base total: ${formatBRL(mf.baseTotalFgts)}
+${input.admissao ? `- FGTS estimado do contrato: ${formatBRL(mf.fgtsPeriodoContrato)}\n` : ""}${mf.fgtsPeriodoVinculo > 0 ? `- FGTS do período sem registro: ${formatBRL(mf.fgtsPeriodoVinculo)}\n` : ""}- Base total: ${formatBRL(mf.baseTotalFgts)}
 - Multa 40%: ${formatBRL(mf.multa40)}`;
+  }
+
+  if (op) {
+    resumo += `
+
+Pedidos adicionais:${op.multa467 > 0 ? `\n- Multa art. 467: ${formatBRL(op.multa467)}` : ""}${op.seguroDesemprego > 0 ? `\n- Seguro-desemprego: ${formatBRL(op.seguroDesemprego)}` : ""}${op.outros > 0 ? `\n- ${op.outrosDescricao || "Outros pedidos"}: ${formatBRL(op.outros)}` : ""}`;
+  }
+
+  if (pedidos.length) {
+    resumo += `
+
+Pedidos sem valor:
+${pedidos.map((p) => `- ${p}`).join("\n")}`;
+  }
+
+  if (alertas.length) {
+    resumo += `
+
+ATENÇÃO:
+${alertas.map((a) => `- ${a.mensagem}`).join("\n")}`;
   }
 
   resumo += `
@@ -89,13 +130,23 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           {input.nascimento && (
             <p className="text-sm text-muted-foreground">Nascimento: {formatDateBR(input.nascimento)}</p>
           )}
-          <p className="text-xs text-muted-foreground">{result.tipoRescisao}</p>
+          <p className="text-xs text-muted-foreground">
+            {result.tipoRescisao} · {TIPO_REGISTRO_LABEL[tipoRegistro]}
+          </p>
           <div className="pt-4">
             <p className="text-sm font-medium text-muted-foreground">Total da Indenização</p>
             <p className="text-4xl font-bold text-primary font-display mt-1">{formatBRL(result.totalFinal)}</p>
           </div>
         </CardContent>
       </Card>
+
+      {/* Prescrição */}
+      {alertas.map((a) =>
+      <Alert key={a.tipo} variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{a.mensagem}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Inputs summary */}
       <Card>
@@ -107,8 +158,22 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <span className="text-muted-foreground">Salário mensal</span>
+            <span className="text-muted-foreground">Registro</span>
+            <span className="font-medium">{TIPO_REGISTRO_LABEL[tipoRegistro]}</span>
+            <span className="text-muted-foreground">{rotuloSalario(tipoRegistro)}</span>
             <span className="font-medium">{formatBRL(input.salario)}</span>
+            {pisoAplicado &&
+            <>
+                <span className="text-muted-foreground">Piso usado nas verbas</span>
+                <span className="font-medium">{formatBRL(salarioBase)}</span>
+              </>
+            }
+            {vin &&
+            <>
+                <span className="text-muted-foreground">Período sem registro</span>
+                <span className="font-medium">{formatDateBR(vin.inicio)} a {formatDateBR(vin.fim)}</span>
+              </>
+            }
             <span className="text-muted-foreground">Tipo de vínculo</span>
             <span className="font-medium flex items-center gap-1">
               {input.empregadaDomestica && <Home className="w-3 h-3" />}
@@ -120,7 +185,7 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                 <span className="font-medium">{formatDateBR(input.admissao)}</span>
               </>
             )}
-            <span className="text-muted-foreground">Data de demissão</span>
+            <span className="text-muted-foreground">{rotuloSaida(tipoRegistro)}</span>
             <span className="font-medium">{formatDateBR(input.demissao)}</span>
             <span className="text-muted-foreground">Data de concepção</span>
             <span className="font-medium">{formatDateBR(input.concepcao)}</span>
@@ -208,12 +273,13 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-primary" />
-              Período sem registro ({vin.meses} meses)
+              {semRegistro ? "Período trabalhado sem registro" : "Período sem registro"} ({vin.meses} meses)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground mb-3">
               {formatDateBR(vin.inicio)} a {formatDateBR(vin.fim)} · salário de {formatBRL(vin.salario)}
+              {(vin.salarioBase ?? vin.salario) > vin.salario && ` · piso de ${formatBRL(vin.salarioBase!)}`}
             </p>
             <div className="rounded-lg overflow-hidden border">
               <table className="w-full text-sm">
@@ -255,11 +321,23 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                 </tbody>
               </table>
             </div>
-            {vin.excedente > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Os valores informados como pagos superam o devido em {formatBRL(vin.excedente)}. O subtotal não fica negativo.
-              </p>
-            )}
+            <div className="space-y-1 mt-2">
+              {vin.salariosPresumidosPagos &&
+              <p className="text-xs text-muted-foreground">
+                  Salários considerados pagos mês a mês; o FGTS continua incidindo sobre eles.
+                </p>
+              }
+              {periodosEmDobro > 0 &&
+              <p className="text-xs text-muted-foreground">
+                  Férias: {periodosEmDobro} {periodosEmDobro === 1 ? "período vencido pago" : "períodos vencidos pagos"} em dobro (CLT 137).
+                </p>
+              }
+              {vin.excedente > 0 &&
+              <p className="text-xs text-muted-foreground">
+                  Os valores informados como pagos superam o devido em {formatBRL(vin.excedente)}. O subtotal não fica negativo.
+                </p>
+              }
+            </div>
           </CardContent>
         </Card>
       )}
@@ -344,17 +422,19 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     <td className="py-2.5 px-4">FGTS sobre verbas indenizatórias</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsRescisorio)}</td>
                   </tr>
+                  {input.admissao &&
                   <tr className="border-t">
-                    <td className="py-2.5 px-4">
-                      FGTS estimado do contrato ({mf.mesesTrabalhados} meses)
-                      {mf.incluiPeriodoContrato === false && (
-                        <span className="block text-xs text-muted-foreground mt-0.5">
-                          Fora da base: a multa sobre esse período já foi paga na rescisão.
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsPeriodoContrato)}</td>
-                  </tr>
+                      <td className="py-2.5 px-4">
+                        FGTS estimado do contrato ({mf.mesesTrabalhados} meses)
+                        {mf.incluiPeriodoContrato === false &&
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                            Fora da base: a multa sobre esse período já foi paga na rescisão.
+                          </span>
+                      }
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.fgtsPeriodoContrato)}</td>
+                    </tr>
+                  }
                   {mf.fgtsPeriodoVinculo > 0 && (
                     <tr className="border-t">
                       <td className="py-2.5 px-4">FGTS do período sem registro</td>
@@ -375,6 +455,71 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
           </CardContent>
         </Card>
       )}
+
+      {/* Pedidos adicionais */}
+      {op &&
+      <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Gavel className="w-4 h-4 text-primary" />
+              Pedidos adicionais
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg overflow-hidden border">
+              <table className="w-full text-sm">
+                <tbody>
+                  {op.multa467 > 0 &&
+                <tr className="border-t first:border-t-0">
+                      <td className="py-2.5 px-4">
+                        Multa do art. 467
+                        <span className="block text-xs text-muted-foreground mt-0.5">50% do aviso prévio e reflexos</span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(op.multa467)}</td>
+                    </tr>
+                }
+                  {op.seguroDesemprego > 0 &&
+                <tr className="border-t first:border-t-0">
+                      <td className="py-2.5 px-4">
+                        Seguro-desemprego
+                        <span className="block text-xs text-muted-foreground mt-0.5">Indenização substitutiva (Súm. 389, II, TST)</span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(op.seguroDesemprego)}</td>
+                    </tr>
+                }
+                  {op.outros > 0 &&
+                <tr className="border-t first:border-t-0">
+                      <td className="py-2.5 px-4">{op.outrosDescricao || "Outros pedidos"}</td>
+                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(op.outros)}</td>
+                    </tr>
+                }
+                  <tr className="border-t bg-primary/5">
+                    <td className="py-3 px-4 font-bold">Subtotal dos pedidos adicionais</td>
+                    <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(op.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      }
+
+      {/* Pedidos sem valor */}
+      {pedidos.length > 0 &&
+      <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ListChecks className="w-4 h-4 text-primary" />
+              Pedidos sem valor
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm list-disc pl-5">
+              {pedidos.map((p) => <li key={p}>{p}</li>)}
+            </ul>
+          </CardContent>
+        </Card>
+      }
 
       {/* Total geral */}
       <Card className="border-2 border-primary/30 bg-primary/10">

@@ -1,4 +1,14 @@
-import { addDays, addMonthsExcelLike, ceilMonthsBetween, anosCompletosEntre } from './dateUtils';
+import { addDays, addMonthsExcelLike, ceilMonthsBetween, anosCompletosEntre, formatDateBR } from './dateUtils';
+import {
+  mesesTrabalhados,
+  mesesDeServico,
+  decimoTerceiroPorAno,
+  periodosDeFerias,
+  limiteQuinquenal,
+  MesTrabalhado,
+  DecimoAno,
+  PeriodoFerias } from
+'./periodoTrabalhado';
 
 export interface ConcepcaoInfo {
   metodo: 'exame' | 'dpp' | 'dum' | 'insuficiente';
@@ -30,6 +40,18 @@ export const MOTIVO_SAIDA_LABEL: Record<MotivoSaida, string> = {
   fim_experiencia: 'Término do contrato de experiência',
 };
 
+/**
+ * Como era o registro do contrato. Define o que se presume pago na saída:
+ * sem carteira, nada foi pago, qualquer que seja o motivo.
+ */
+export type TipoRegistro = 'com_carteira' | 'registrada_depois' | 'sem_registro';
+
+export const TIPO_REGISTRO_LABEL: Record<TipoRegistro, string> = {
+  com_carteira: 'Com carteira desde o início',
+  registrada_depois: 'Registrada depois de um período sem carteira',
+  sem_registro: 'Sem registro — reconhecimento de vínculo',
+};
+
 /** Valores que a cliente já recebeu, para abater verba a verba. */
 export interface VinculoRecebido {
   salarios: number;
@@ -45,9 +67,16 @@ export interface VinculoRecebido {
 /** Período trabalhado sem registro, cujo reconhecimento se pede na ação. */
 export interface VinculoInput {
   inicio: Date;
+  /** Último dia trabalhado sem registro, contado por inteiro. */
   fim: Date;
+  /** Salário efetivamente pago no período (o combinado). */
   salario: number;
   recebido: VinculoRecebido;
+  /**
+   * Salário recebido todo mês por fora: fica presumido quitado. Cálculos
+   * anteriores a este campo não o têm, e neles os salários eram cobrados.
+   */
+  recebiaSalario?: boolean;
 }
 
 export interface VinculoVerba {
@@ -60,11 +89,19 @@ export interface VinculoResult {
   inicio: Date;
   fim: Date;
   meses: number;
+  /** Salário pago no período. */
   salario: number;
+  /** Salário usado para as verbas: o pago ou o piso, o que for maior. */
+  salarioBase?: number;
+  salariosPresumidosPagos?: boolean;
   salarios: VinculoVerba;
   decimoTerceiro: VinculoVerba;
   feriasComTerco: VinculoVerba;
   fgts: VinculoVerba;
+  decimoPorAno?: DecimoAno[];
+  periodosFerias?: PeriodoFerias[];
+  /** Meses civis cujas verbas ficaram fora por prescrição quinquenal. */
+  mesesPrescritos?: number;
   outrosRecebidos: number;
   outrosDescricao?: string;
   totalDevido: number;
@@ -75,9 +112,34 @@ export interface VinculoResult {
   excedente: number;
 }
 
+/** Pedidos que o advogado decide incluir caso a caso. */
+export interface PedidosOpcionais {
+  /** Multa de 50% sobre as rescisórias incontroversas (CLT 467). */
+  multa467: boolean;
+  /** Indenização pelo seguro-desemprego não recebido (Súm. 389, II, TST). */
+  seguroDesemprego: number;
+  /** Dano moral ou outro pedido de valor arbitrado. */
+  outrosValor: number;
+  outrosDescricao?: string;
+}
+
+export interface OpcionaisResult {
+  multa467: number;
+  seguroDesemprego: number;
+  outros: number;
+  outrosDescricao?: string;
+  total: number;
+}
+
+export interface AlertaCalculo {
+  tipo: 'prescricao_bienal' | 'prescricao_quinquenal';
+  mensagem: string;
+}
+
 export interface CalcInput {
   nome: string;
   nascimento: Date | null;
+  /** Salário na carteira ou, sem registro, o combinado. */
   salario: number;
   demissao: Date;
   concepcao: Date;
@@ -85,11 +147,17 @@ export interface CalcInput {
   /** Derivado de motivoSaida. Mantido para não quebrar cálculos já salvos. */
   pediuAConta: boolean;
   motivoSaida?: MotivoSaida;
+  tipoRegistro?: TipoRegistro;
+  /** Piso da categoria ou salário mínimo, quando maior que o salário pago. */
+  piso?: number | null;
   mesesManual: number | null;
   empregadaDomestica: boolean;
   admissao: Date | null;
   calcularMultaFgts: boolean;
   vinculo?: VinculoInput | null;
+  opcionais?: PedidosOpcionais | null;
+  /** Data que faz as vezes do ajuizamento na contagem da prescrição. */
+  dataReferencia?: Date;
   concepcaoInfo?: ConcepcaoInfo;
 }
 
@@ -135,9 +203,14 @@ export interface CalcResult {
   tabela2: Tabela2 | null;
   vinculo: VinculoResult | null;
   multaFgts: MultaFgtsResult | null;
+  opcionais?: OpcionaisResult | null;
+  alertas?: AlertaCalculo[];
   totalFinal: number;
   pediuAConta: boolean;
   motivoSaida: MotivoSaida;
+  tipoRegistro?: TipoRegistro;
+  /** Salário usado na estabilidade e na rescisão (o pago ou o piso). */
+  salarioBase?: number;
   tipoRescisao: string;
 }
 
@@ -147,22 +220,30 @@ export function resolveMotivoSaida(input: Pick<CalcInput, 'motivoSaida' | 'pediu
   return input.pediuAConta ? 'pedido_demissao' : 'dispensa_sem_justa_causa';
 }
 
+/** Cálculos antigos não tinham o campo; o módulo de vínculo indicava registro posterior. */
+export function resolveTipoRegistro(input: Pick<CalcInput, 'tipoRegistro' | 'vinculo'>): TipoRegistro {
+  if (input.tipoRegistro) return input.tipoRegistro;
+  return input.vinculo ? 'registrada_depois' : 'com_carteira';
+}
+
 /**
  * Aviso prévio, 13º e férias sobre o aviso e multa do art. 477 só entram quando
- * a empregada não os recebeu na saída. Na dispensa sem justa causa a empresa já
- * os pagou na rescisão.
+ * a empregada não os recebeu na saída. Com carteira, a dispensa sem justa causa
+ * presume a rescisão paga; sem registro, nada foi pago em motivo nenhum.
  */
-export function temVerbasRescisorias(motivo: MotivoSaida): boolean {
+export function temVerbasRescisorias(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+  if (tipoRegistro === 'sem_registro') return true;
   return motivo !== 'dispensa_sem_justa_causa';
 }
 
 /**
- * Na dispensa sem justa causa a multa de 40% sobre o FGTS do período trabalhado
- * já foi paga na rescisão; resta apenas a multa sobre o FGTS do período de
- * estabilidade. No pedido de demissão e no término de experiência nada de 40%
- * foi pago, então a base alcança todo o contrato.
+ * Na dispensa sem justa causa com carteira, a multa de 40% sobre o FGTS do
+ * contrato registrado já foi paga na rescisão; resta apenas a multa sobre o
+ * FGTS do período de estabilidade. No pedido de demissão, no término de
+ * experiência e sem registro, nada de 40% foi pago.
  */
-export function incluiFgtsDoContrato(motivo: MotivoSaida): boolean {
+export function incluiFgtsDoContrato(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+  if (tipoRegistro === 'sem_registro') return true;
   return motivo !== 'dispensa_sem_justa_causa';
 }
 
@@ -225,38 +306,70 @@ function montaVerba(devido: number, recebido: number): VinculoVerba {
 
 /**
  * Período trabalhado sem registro. Cada verba é apurada pelo que seria devido e
- * abatida do que a cliente comprovadamente recebeu, para o memorial mostrar
- * devido, pago e diferença linha a linha.
+ * abatida do que a cliente recebeu, para o memorial mostrar devido, pago e
+ * diferença linha a linha. Verbas vencidas há mais de cinco anos ficam fora.
  */
-function calcVinculo(v: VinculoInput, aliquotaFgts: number): VinculoResult {
-  const meses = ceilMonthsBetween(v.inicio, v.fim);
-  const salariosDevidos = meses * v.salario;
-  const decimoDevido = (v.salario / 12) * meses;
-  const feriasProporcionais = (v.salario / 12) * meses;
-  const feriasDevidas = feriasProporcionais + feriasProporcionais / 3;
-  const fgtsDevido = (salariosDevidos + decimoDevido + feriasDevidas) * aliquotaFgts;
+function calcVinculo(
+  v: VinculoInput,
+  piso: number,
+  aliquotaFgts: number,
+  limitePrescricao: Date | null,
+): VinculoResult {
+  const recebiaSalario = v.recebiaSalario ?? false;
+  const salarioBase = Math.max(v.salario, piso);
 
-  const salarios = montaVerba(salariosDevidos, v.recebido.salarios);
+  const meses = mesesTrabalhados(v.inicio, v.fim);
+  const exigivel = (m: MesTrabalhado) => limitePrescricao === null || m.ultimoDia >= limitePrescricao;
+  const mesesExigiveis = meses.filter(exigivel);
+  const proporcao = (m: MesTrabalhado) => m.dias / m.diasNoMes;
+
+  // Salário mês a mês, pelos dias trabalhados. Quando ela recebia todo mês, o
+  // que foi pago abate o devido e sobra só a diferença para o piso, se houver.
+  const salariosDevidos = mesesExigiveis.reduce((soma, m) => soma + salarioBase * proporcao(m), 0);
+  const salariosPresumidos = recebiaSalario ?
+  mesesExigiveis.reduce((soma, m) => soma + v.salario * proporcao(m), 0) :
+  0;
+
+  const decimoPorAno = decimoTerceiroPorAno(meses, salarioBase, limitePrescricao, v.fim.getFullYear());
+  const decimoDevido = decimoPorAno.
+  filter((d) => !d.prescrito).
+  reduce((soma, d) => soma + d.valor, 0);
+
+  const periodosFerias = periodosDeFerias(v.inicio, v.fim, salarioBase, limitePrescricao);
+  const feriasValidas = periodosFerias.filter((p) => !p.prescrito);
+  const feriasDevidas = feriasValidas.reduce((soma, p) => soma + p.valor, 0);
+  // A dobra do art. 137 é sanção, não remuneração: fica fora da base do FGTS.
+  const feriasBaseFgts = feriasValidas.reduce((soma, p) => soma + p.valorSimples, 0);
+
+  // O FGTS incide sobre tudo o que era devido, inclusive o que ela recebeu por fora.
+  const fgtsDevido = (salariosDevidos + decimoDevido + feriasBaseFgts) * aliquotaFgts;
+
+  const salarios = montaVerba(salariosDevidos, salariosPresumidos + v.recebido.salarios);
   const decimoTerceiro = montaVerba(decimoDevido, v.recebido.decimoTerceiro);
   const feriasComTerco = montaVerba(feriasDevidas, v.recebido.ferias);
   const fgts = montaVerba(fgtsDevido, v.recebido.fgts);
 
   const totalDevido = salariosDevidos + decimoDevido + feriasDevidas + fgtsDevido;
   const totalRecebido =
-    v.recebido.salarios + v.recebido.decimoTerceiro + v.recebido.ferias +
-    v.recebido.fgts + v.recebido.outros;
+  salarios.recebido + decimoTerceiro.recebido + feriasComTerco.recebido +
+  fgts.recebido + v.recebido.outros;
   const somaDiferencas =
-    salarios.diferenca + decimoTerceiro.diferenca + feriasComTerco.diferenca + fgts.diferenca;
+  salarios.diferenca + decimoTerceiro.diferenca + feriasComTerco.diferenca + fgts.diferenca;
 
   return {
     inicio: v.inicio,
     fim: v.fim,
-    meses,
+    meses: mesesDeServico(v.inicio, v.fim),
     salario: v.salario,
+    salarioBase,
+    salariosPresumidosPagos: recebiaSalario,
     salarios,
     decimoTerceiro,
     feriasComTerco,
     fgts,
+    decimoPorAno,
+    periodosFerias,
+    mesesPrescritos: meses.length - mesesExigiveis.length,
     outrosRecebidos: v.recebido.outros,
     outrosDescricao: v.recebido.outrosDescricao,
     totalDevido,
@@ -270,10 +383,11 @@ function calcMultaFgts(
   input: CalcInput,
   fgtsRescisorio: number,
   motivo: MotivoSaida,
+  tipoRegistro: TipoRegistro,
   fgtsPeriodoVinculo: number,
 ): MultaFgtsResult {
   const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
-  const incluiPeriodoContrato = incluiFgtsDoContrato(motivo);
+  const incluiPeriodoContrato = incluiFgtsDoContrato(motivo, tipoRegistro);
   let mesesTrabalhados = 0;
   let fgtsPeriodoContrato = 0;
 
@@ -302,8 +416,71 @@ function calcMultaFgts(
   };
 }
 
+function calcOpcionais(op: PedidosOpcionais | null | undefined, tabela2: Tabela2 | null): OpcionaisResult | null {
+  if (!op) return null;
+
+  // A multa do 467 recai sobre as rescisórias em si, não sobre a multa do 477.
+  const baseRescisorias = tabela2 ?
+  Math.max(0, tabela2.avisoProvio + tabela2.decimoTerceiroAviso + tabela2.feriasComTercoAviso - tabela2.jaRecebido) :
+  0;
+  const multa467 = op.multa467 ? baseRescisorias * 0.5 : 0;
+  const seguroDesemprego = Math.max(0, op.seguroDesemprego || 0);
+  const outros = Math.max(0, op.outrosValor || 0);
+  const total = multa467 + seguroDesemprego + outros;
+
+  if (total === 0) return null;
+  return { multa467, seguroDesemprego, outros, outrosDescricao: op.outrosDescricao, total };
+}
+
+function calcAlertas(
+  input: CalcInput,
+  vinculo: VinculoResult | null,
+  inicioContrato: Date | null,
+  dataReferencia: Date,
+  limitePrescricao: Date,
+): AlertaCalculo[] {
+  const alertas: AlertaCalculo[] = [];
+
+  // A bienal corre do fim do aviso prévio projetado a partir da saída real
+  // (OJ 83 da SDI-1 do TST).
+  const avisoReal = calcAvisoDias(inicioContrato, input.demissao);
+  const limiteBienal = addMonthsExcelLike(addDays(input.demissao, avisoReal), 24);
+  if (dataReferencia > limiteBienal) {
+    alertas.push({
+      tipo: 'prescricao_bienal',
+      mensagem:
+      `O prazo de dois anos para ajuizar venceu em ${formatDateBR(limiteBienal)}, ` +
+      'contado do fim do aviso prévio (CF 7º, XXIX; OJ 83 da SDI-1 do TST). A ação pode estar prescrita.',
+    });
+  }
+
+  const algoPrescrito =
+  vinculo !== null && (
+  (vinculo.mesesPrescritos ?? 0) > 0 ||
+  (vinculo.decimoPorAno ?? []).some((d) => d.prescrito) ||
+  (vinculo.periodosFerias ?? []).some((p) => p.prescrito));
+
+  if (algoPrescrito) {
+    alertas.push({
+      tipo: 'prescricao_quinquenal',
+      mensagem:
+      `Verbas do período sem registro vencidas antes de ${formatDateBR(limitePrescricao)} ficaram fora do cálculo ` +
+      '(prescrição de cinco anos, considerando o ajuizamento na data do cálculo). ' +
+      'O pedido de anotação da CTPS continua abrangendo todo o período (CLT 11, § 1º).',
+    });
+  }
+
+  return alertas;
+}
+
 export function calculate(input: CalcInput): CalcResult {
   const motivoSaida = resolveMotivoSaida(input);
+  const tipoRegistro = resolveTipoRegistro(input);
+  const piso = input.piso && input.piso > 0 ? input.piso : 0;
+  const salarioBase = Math.max(input.salario, piso);
+  const dataReferencia = input.dataReferencia ?? new Date();
+  const limitePrescricao = limiteQuinquenal(dataReferencia);
+
   const previsaoParto = input.partoPrevisao;
   const fimEstabilidade = addMonthsExcelLike(previsaoParto, 5);
   const mesesEstabilidadeAuto = calcMesesEstabilidade(input.demissao, previsaoParto);
@@ -312,8 +489,10 @@ export function calculate(input: CalcInput): CalcResult {
   const mesesEstabilidade = mesesManual ? input.mesesManual! : mesesEstabilidadeAuto;
 
   const aliquotaFgts = input.empregadaDomestica ? 0.112 : 0.08;
-  const tabela1 = calcTabela1(input.salario, mesesEstabilidade, input.empregadaDomestica);
-  const vinculo = input.vinculo ? calcVinculo(input.vinculo, aliquotaFgts) : null;
+  const tabela1 = calcTabela1(salarioBase, mesesEstabilidade, input.empregadaDomestica);
+  const vinculo = input.vinculo ?
+  calcVinculo(input.vinculo, piso, aliquotaFgts, limitePrescricao) :
+  null;
 
   // O tempo de serviço começa no período sem registro quando ele é anterior à
   // admissão formal, e se projeta até o fim da estabilidade.
@@ -322,14 +501,17 @@ export function calculate(input: CalcInput): CalcResult {
   sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const avisoDias = calcAvisoDias(inicioContrato, fimEstabilidade);
 
-  const tabela2 = temVerbasRescisorias(motivoSaida) ?
-  calcTabela2(input.salario, avisoDias, input.vinculo?.recebido.rescisorias ?? 0) :
+  const tabela2 = temVerbasRescisorias(motivoSaida, tipoRegistro) ?
+  calcTabela2(salarioBase, avisoDias, input.vinculo?.recebido.rescisorias ?? 0) :
   null;
 
   let multaFgts: MultaFgtsResult | null = null;
   if (input.calcularMultaFgts) {
-    multaFgts = calcMultaFgts(input, tabela1.fgts, motivoSaida, vinculo?.fgts.devido ?? 0);
+    multaFgts = calcMultaFgts(input, tabela1.fgts, motivoSaida, tipoRegistro, vinculo?.fgts.devido ?? 0);
   }
+
+  const opcionais = calcOpcionais(input.opcionais, tabela2);
+  const alertas = calcAlertas(input, vinculo, inicioContrato, dataReferencia, limitePrescricao);
 
   const tipoRescisao = MOTIVO_SAIDA_LABEL[motivoSaida];
 
@@ -343,6 +525,9 @@ export function calculate(input: CalcInput): CalcResult {
   if (multaFgts) {
     totalFinal += multaFgts.multa40;
   }
+  if (opcionais) {
+    totalFinal += opcionais.total;
+  }
 
   return {
     previsaoParto,
@@ -354,9 +539,13 @@ export function calculate(input: CalcInput): CalcResult {
     tabela2,
     vinculo,
     multaFgts,
+    opcionais,
+    alertas,
     totalFinal,
     pediuAConta: motivoSaida === 'pedido_demissao',
     motivoSaida,
+    tipoRegistro,
+    salarioBase,
     tipoRescisao,
   };
 }

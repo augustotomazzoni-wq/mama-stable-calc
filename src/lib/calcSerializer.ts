@@ -17,6 +17,7 @@ export function serializeInput(input: CalcInput) {
     concepcao: input.concepcao.toISOString(),
     partoPrevisao: input.partoPrevisao.toISOString(),
     admissao: input.admissao ? input.admissao.toISOString() : null,
+    dataReferencia: input.dataReferencia ? input.dataReferencia.toISOString() : undefined,
     vinculo: input.vinculo
       ? {
           ...input.vinculo,
@@ -37,7 +38,7 @@ export function serializeInput(input: CalcInput) {
 }
 
 export function deserializeInput(data: any): CalcInput {
-  const i = reviveDates(data, ["nascimento", "demissao", "concepcao", "partoPrevisao", "admissao"]);
+  const i = reviveDates(data, ["nascimento", "demissao", "concepcao", "partoPrevisao", "admissao", "dataReferencia"]);
   if (i.nascimento === null || i.nascimento === undefined) i.nascimento = null;
   if (i.vinculo) {
     i.vinculo = reviveDates(i.vinculo, ["inicio", "fim"]);
@@ -72,6 +73,9 @@ export function deserializeResult(data: any): CalcResult {
   const r = reviveDates(data, ["previsaoParto", "fimEstabilidade"]);
   if (r.vinculo) {
     r.vinculo = reviveDates(r.vinculo, ["inicio", "fim"]);
+    if (Array.isArray(r.vinculo.periodosFerias)) {
+      r.vinculo.periodosFerias = r.vinculo.periodosFerias.map((p: any) => reviveDates(p, ["inicio", "fim"]));
+    }
   }
   return r as CalcResult;
 }
@@ -85,6 +89,8 @@ export function buildResumoJson(input: CalcInput, result: CalcResult) {
     subtotalIndenizacao: result.tabela1.total,
     subtotalVerbasRescisorias: result.tabela2?.total ?? 0,
     subtotalVinculo: result.vinculo?.total ?? 0,
+    tipoRegistro: result.tipoRegistro ?? "com_carteira",
+    subtotalOpcionais: result.opcionais?.total ?? 0,
     mesesVinculo: result.vinculo?.meses ?? 0,
     multaFgts40: result.multaFgts?.multa40 ?? 0,
     totalFinal: result.totalFinal,
