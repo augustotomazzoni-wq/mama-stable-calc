@@ -50,8 +50,8 @@ const NovaSenha = ({ onConcluir }: { onConcluir: () => void }) => {
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
-    if (senha.length < 8) {
-      setErro("A senha precisa ter ao menos 8 caracteres.");
+    if (senha.length < 6) {
+      setErro("A senha precisa ter ao menos 6 caracteres.");
       return;
     }
     if (senha !== confirmacao) {
@@ -60,6 +60,17 @@ const NovaSenha = ({ onConcluir }: { onConcluir: () => void }) => {
     }
     setSalvando(true);
     const { error } = await supabase.auth.updateUser({ password: senha });
+    if (!error) {
+      const { error: perfilError } = await supabase
+        .from("profiles")
+        .update({ deve_trocar_senha: false })
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "");
+      if (perfilError) {
+        setSalvando(false);
+        setErro("A senha foi alterada, mas não foi possível concluir o primeiro acesso. Tente novamente.");
+        return;
+      }
+    }
     setSalvando(false);
     if (error) {
       setErro(error.message);
@@ -117,10 +128,10 @@ const NovaSenha = ({ onConcluir }: { onConcluir: () => void }) => {
 
 /** Nenhuma tela do sistema abre sem sessão; a de usuários exige administrador. */
 const RotaProtegida = ({ children, somenteAdmin = false }: Props) => {
-  const { sessao, papel, ehAdmin, carregando, carregandoPapel, recuperandoSenha, concluirRecuperacao } = useSessao();
+  const { sessao, papel, ehAdmin, carregando, carregandoPapel, recuperandoSenha, deveTrocarSenha, concluirTrocaSenha } = useSessao();
 
   if (carregando) return <Carregando />;
-  if (recuperandoSenha && sessao) return <NovaSenha onConcluir={concluirRecuperacao} />;
+  if ((recuperandoSenha || deveTrocarSenha) && sessao) return <NovaSenha onConcluir={concluirTrocaSenha} />;
   if (!sessao) return <Login />;
   if (carregandoPapel) return <Carregando />;
 
