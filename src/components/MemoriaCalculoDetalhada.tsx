@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CalcInput, CalcResult, TIPO_REGISTRO_LABEL } from "@/lib/calculator";
 import { formatBRL, formatDateBR } from "@/lib/dateUtils";
-import { pedidosSemValor, tipoRegistroDe, rotuloSalario, rotuloSaida } from "@/lib/pedidos";
+import { tipoRegistroDe, rotuloSalario, rotuloSaida } from "@/lib/pedidos";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Printer } from "lucide-react";
@@ -77,13 +77,11 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   const alertas = result.alertas ?? [];
   const tipoRegistro = tipoRegistroDe(input, result);
   const semRegistro = tipoRegistro === "sem_registro";
-  const pedidos = pedidosSemValor(input, result);
   // A numeração acompanha as seções que existem neste cálculo.
   const nVinculo = 3;
   const nRescisorias = 3 + (vin ? 1 : 0);
   const nMulta = 3 + (vin ? 1 : 0) + (t2 ? 1 : 0);
   const nOpcionais = nMulta + (mf ? 1 : 0);
-  const nPedidos = nOpcionais + (op ? 1 : 0);
   const aliquotaLabel = input.empregadaDomestica ? "11,2%" : "8%";
   const meses = result.mesesEstabilidade;
   // Estabilidade e rescisão usam o piso quando ele supera o salário pago.
@@ -400,18 +398,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
         }
           <SubtotalLinha titulo="Subtotal dos Pedidos Adicionais" valor={op.total} />
-        </section>
-      }
-
-      {/* Pedidos sem valor */}
-      {pedidos.length > 0 &&
-      <section>
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {nPedidos}. Pedidos sem Valor
-          </h2>
-          <ul className="space-y-2 text-sm text-foreground list-disc pl-5">
-            {pedidos.map((p) => <li key={p}>{p}</li>)}
-          </ul>
         </section>
       }
 
