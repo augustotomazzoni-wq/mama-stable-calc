@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      acessos: {
+        Row: {
+          email: string | null
+          id: string
+          ocorrido_em: string
+          tipo: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: string
+          ocorrido_em?: string
+          tipo?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string
+          ocorrido_em?: string
+          tipo?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       consultas_calculo: {
         Row: {
           created_at: string
@@ -62,15 +89,102 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usuarios_autorizados: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          criado_por: string | null
+          email: string
+          id: string
+          nome: string | null
+          papel: Database["public"]["Enums"]["app_role"]
+          usado_em: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          email: string
+          id?: string
+          nome?: string | null
+          papel?: Database["public"]["Enums"]["app_role"]
+          usado_em?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          email?: string
+          id?: string
+          nome?: string | null
+          papel?: Database["public"]["Enums"]["app_role"]
+          usado_em?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      definir_ativo: {
+        Args: { _ativo: boolean; _email: string }
+        Returns: undefined
+      }
+      definir_papel: {
+        Args: {
+          _email: string
+          _papel: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      listar_usuarios: {
+        Args: never
+        Returns: {
+          ativo: boolean
+          criado_em: string
+          email: string
+          nome: string
+          papel: Database["public"]["Enums"]["app_role"]
+          tem_conta: boolean
+          ultimo_acesso: string
+          usado_em: string
+        }[]
+      }
+      remover_autorizado: { Args: { _email: string }; Returns: undefined }
+      tem_acesso: { Args: { _user_id: string }; Returns: boolean }
+      total_admins: { Args: never; Returns: number }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "usuario"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -197,6 +311,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "usuario"],
+    },
   },
 } as const
