@@ -411,12 +411,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         </section>
       }
 
-      {pisoAplicado && tipoRegistro !== "sem_registro" &&
-      <p className="text-xs text-muted-foreground">
-          As diferenças salariais do período registrado em carteira não são apuradas por esta calculadora.
-        </p>
-      }
-
       {/* Total Geral */}
       <section className="border-t-2 border-foreground/30 pt-6">
         <div className="flex items-baseline justify-between">
