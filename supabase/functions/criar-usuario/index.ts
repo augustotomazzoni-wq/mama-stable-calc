@@ -25,11 +25,13 @@ Deno.serve(async (req) => {
     if (userError || !userData.user) throw new Error("NAO_AUTENTICADO");
 
     const adminClient = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const { data: isAdmin, error: roleError } = await adminClient.rpc("has_role", {
-      _user_id: userData.user.id,
-      _role: "admin",
-    });
-    if (roleError || !isAdmin) throw new Error("APENAS_ADMIN");
+    const { data: adminRole, error: roleError } = await adminClient
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userData.user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (roleError || !adminRole) throw new Error("APENAS_ADMIN");
 
     const body = await req.json();
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
