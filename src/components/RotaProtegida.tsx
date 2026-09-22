@@ -59,12 +59,19 @@ const NovaSenha = ({ onConcluir }: { onConcluir: () => void }) => {
       return;
     }
     setSalvando(true);
+    const { data: usuarioData } = await supabase.auth.getUser();
+    const userId = usuarioData.user?.id;
+    if (!userId) {
+      setSalvando(false);
+      setErro("Sua sessão expirou. Entre novamente com a senha inicial.");
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: senha });
     if (!error) {
       const { error: perfilError } = await supabase
         .from("profiles")
         .update({ deve_trocar_senha: false })
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "");
+        .eq("user_id", userId);
       if (perfilError) {
         setSalvando(false);
         setErro("A senha foi alterada, mas não foi possível concluir o primeiro acesso. Tente novamente.");

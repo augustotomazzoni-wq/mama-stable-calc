@@ -125,9 +125,8 @@ const Usuarios = () => {
       return;
     }
 
-    const { error: criarError } = await supabase.auth.signUp({
-      email,
-      password: "123456",
+    const { error: criarError } = await supabase.functions.invoke("criar-usuario", {
+      body: { email },
     });
     if (criarError) {
       toast.error("O e-mail foi liberado, mas a conta não pôde ser criada: " + traduzErroRpc(criarError.message));
@@ -135,7 +134,6 @@ const Usuarios = () => {
       return;
     }
 
-    await supabase.auth.signOut();
     toast.success("Usuário cadastrado. A senha inicial é 123456.");
     setNovoEmail("");
     setNovoNome("");
