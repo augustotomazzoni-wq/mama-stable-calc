@@ -216,8 +216,19 @@ const Index = () => {
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
   const [calcularMultaFgts, setCalcularMultaFgts] = useState(true);
-  const [fgtsContratoNaoPago, setFgtsContratoNaoPago] = useState(false);
-  const [recebidoNaSaida, setRecebidoNaSaida] = useState("");
+  // O que a empresa pagou na rescisão, verba a verba. Abate de cada verba
+  // correspondente no cálculo projetado até o fim da estabilidade.
+  const [recebidoRescisao, setRecebidoRescisao] = useState({
+    avisoPrevio: "",
+    decimoTerceiroAviso: "",
+    feriasAviso: "",
+    multa477: "",
+    multa40: "",
+    outros: "",
+    outrosDescricao: "",
+  });
+  const mudarRecebido = (campo: keyof typeof recebidoRescisao, valor: string) =>
+  setRecebidoRescisao((atual) => ({ ...atual, [campo]: valor }));
 
   // Passo 3, só quando há período sem registro
   const [vinculoSalario, setVinculoSalario] = useState("");
@@ -341,12 +352,6 @@ const Index = () => {
     }
   };
 
-  // Só na dispensa — no pedido de demissão e no fim do termo ninguém pagou
-  // 40%, e o período trabalhado já entra na base por padrão.
-  const dispensaComFgtsPresumidoPago =
-  tipoRegistro !== "sem_registro" && (
-  motivoSaida === "dispensa_sem_justa_causa" || motivoSaida === "dispensa_na_experiencia");
-
   const salarioNumero = Number(salario) || 0;
   const pisoNumero = Number(piso) || 0;
   const pisoAplicado = pisoNumero > salarioNumero && salarioNumero > 0;
@@ -383,8 +388,7 @@ const Index = () => {
   // Com carteira, a admissão só é indispensável quando o FGTS do contrato entra
   // na base da multa. Registrada depois, ela marca o fim do período sem registro.
   const admissaoObrigatoria = registradaDepois || (
-  tipoRegistro === "com_carteira" && calcularMultaFgts &&
-  incluiFgtsDoContrato(motivoSaida, tipoRegistro, dispensaComFgtsPresumidoPago && fgtsContratoNaoPago));
+  tipoRegistro === "com_carteira" && calcularMultaFgts);
 
   const erroOrdemDatas = (() => {
     if (registradaDepois && inicioDate && admissaoDate && inicioDate >= admissaoDate) {
@@ -478,8 +482,15 @@ const Index = () => {
       empregadaDomestica,
       admissao: semRegistro ? null : admissaoDate,
       calcularMultaFgts,
-      fgtsContratoNaoPago: dispensaComFgtsPresumidoPago ? fgtsContratoNaoPago : false,
-      recebidoNaSaida: tipoRegistro === "com_carteira" ? valorNumerico(recebidoNaSaida) : 0,
+      recebidoNaRescisao: {
+        avisoPrevio: valorNumerico(recebidoRescisao.avisoPrevio),
+        decimoTerceiroAviso: valorNumerico(recebidoRescisao.decimoTerceiroAviso),
+        feriasAviso: valorNumerico(recebidoRescisao.feriasAviso),
+        multa477: valorNumerico(recebidoRescisao.multa477),
+        outros: valorNumerico(recebidoRescisao.outros),
+        outrosDescricao: recebidoRescisao.outrosDescricao.trim() || undefined,
+      },
+      multa40Recebida: valorNumerico(recebidoRescisao.multa40),
       vinculo,
       opcionais: {
         multa467,
@@ -1036,47 +1047,88 @@ const Index = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">{textoBaseMulta}</p>
 
-                {/* A dispensa presume os 40% pagos no TRCT. Quando não foram,
-                    o período trabalhado volta para a base. */}
-                {calcularMultaFgts && dispensaComFgtsPresumidoPago &&
-              <div className="flex items-start gap-2 border-t border-border/60 pt-3">
-                    <Checkbox
-                  id="fgtsNaoPago"
-                  checked={fgtsContratoNaoPago}
-                  onCheckedChange={(v) => setFgtsContratoNaoPago(v === true)}
-                  className="mt-0.5" />
-
-                    <Label htmlFor="fgtsNaoPago" className="text-xs font-normal cursor-pointer leading-relaxed">
-                      A empresa não pagou os 40% do FGTS na saída.
-                      <span className="block text-muted-foreground">
-                        Marque quando o TRCT não trouxe a multa. O FGTS do tempo trabalhado volta
-                        para a base.
-                      </span>
-                    </Label>
-                  </div>
-              }
               </div>
 
-              {/* O que ela recebeu na saída, no contrato com carteira. O
-                  período sem registro tem o campo próprio dele no passo 3. */}
-              {tipoRegistro === "com_carteira" &&
-            <div className="space-y-2">
-                  <Label htmlFor="recebidoNaSaida">O que ela recebeu na saída</Label>
-                  <Input
-                id="recebidoNaSaida"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0,00"
-                value={recebidoNaSaida}
-                onChange={(e) => setRecebidoNaSaida(e.target.value)} />
-
-                  <p className="text-xs text-muted-foreground">
-                    Opcional. Abate das verbas rescisórias — na experiência rompida antes do prazo,
-                    é aqui que entra a indenização do art. 479 que ela já recebeu.
+              {/* O que a empresa pagou na rescisão.
+                  Reconhecida a nulidade, o contrato se projeta até o fim da
+                  estabilidade e a conta é refeita por inteiro. O que já foi
+                  pago não some do cálculo: abate verba a verba, e o memorial
+                  mostra devido, pago e diferença. */}
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold">O que ela já recebeu na rescisão</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Opcional. Preencha o que constar do TRCT: cada valor abate da verba
+                    correspondente, e o que sobrar é a diferença que se pede. Deixe em branco o que
+                    não foi pago.
                   </p>
                 </div>
-            }
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recAviso" className="text-xs">Aviso prévio</Label>
+                    <Input
+                      id="recAviso" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.avisoPrevio}
+                      onChange={(e) => mudarRecebido("avisoPrevio", e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rec13" className="text-xs">13º sobre o aviso</Label>
+                    <Input
+                      id="rec13" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.decimoTerceiroAviso}
+                      onChange={(e) => mudarRecebido("decimoTerceiroAviso", e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recFerias" className="text-xs">Férias + 1/3 sobre o aviso</Label>
+                    <Input
+                      id="recFerias" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.feriasAviso}
+                      onChange={(e) => mudarRecebido("feriasAviso", e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rec477" className="text-xs">Multa do art. 477</Label>
+                    <Input
+                      id="rec477" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.multa477}
+                      onChange={(e) => mudarRecebido("multa477", e.target.value)} />
+                  </div>
+                  {calcularMultaFgts &&
+                  <div className="space-y-1.5">
+                      <Label htmlFor="rec40" className="text-xs">Multa de 40% do FGTS</Label>
+                      <Input
+                      id="rec40" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.multa40}
+                      onChange={(e) => mudarRecebido("multa40", e.target.value)} />
+                      <p className="text-[11px] text-muted-foreground">
+                        O que constar do TRCT. Se a empresa pagou sobre base menor que a devida, a
+                        diferença aparece no cálculo.
+                      </p>
+                    </div>
+                  }
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recOutros" className="text-xs">Outros valores</Label>
+                    <Input
+                      id="recOutros" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.outros}
+                      onChange={(e) => mudarRecebido("outros", e.target.value)} />
+                    <p className="text-[11px] text-muted-foreground">
+                      Abate do subtotal. É aqui que entra a indenização do art. 479 da experiência
+                      rompida antes do prazo.
+                    </p>
+                  </div>
+                </div>
+
+                {valorNumerico(recebidoRescisao.outros) > 0 &&
+                <div className="space-y-1.5">
+                    <Label htmlFor="recOutrosDesc" className="text-xs">A que se refere</Label>
+                    <Input
+                    id="recOutrosDesc" placeholder="Indenização do art. 479, por exemplo"
+                    value={recebidoRescisao.outrosDescricao}
+                    onChange={(e) => mudarRecebido("outrosDescricao", e.target.value)} />
+                  </div>
+                }
+              </div>
 
               {/* Data de admissão, só com carteira desde o início */}
               {tipoRegistro === "com_carteira" &&

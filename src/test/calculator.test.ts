@@ -6,7 +6,8 @@ import {
   calcAvisoDias,
   CalcInput,
   MotivoSaida,
-  VinculoRecebido } from
+  VinculoRecebido,
+  RESCISAO_RECEBIDA_VAZIA } from
 "@/lib/calculator";
 
 /**
@@ -71,13 +72,35 @@ const FGTS_ESTABILIDADE = 2080;
 const FGTS_CONTRATO = 960;
 
 describe("multa de 40% do FGTS por motivo da saída", () => {
-  it("na dispensa sem justa causa, incide só sobre o FGTS do período de estabilidade", () => {
+  it("a base é sempre completa: estabilidade + contrato trabalhado", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa"));
 
-    expect(r.multaFgts!.incluiPeriodoContrato).toBe(false);
-    expect(r.multaFgts!.fgtsPeriodoContrato).toBe(0);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE, 2);
+    expect(r.multaFgts!.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
+    expect(r.multaFgts!.multa40Devida).toBeCloseTo(1216, 2);
+  });
+
+  it("abate a multa de 40% que a empresa pagou na rescisão", () => {
+    // Pagou exatamente os 40% do FGTS do contrato: sobra só a parte da
+    // estabilidade, que é o mesmo número do atalho antigo.
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      multa40Recebida: FGTS_CONTRATO * 0.4,
+    }));
+
+    expect(r.multaFgts!.multa40Paga).toBeCloseTo(384, 2);
     expect(r.multaFgts!.multa40).toBeCloseTo(832, 2);
+  });
+
+  it("cobra a diferença quando a empresa pagou os 40% sobre base menor", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", { multa40Recebida: 200 }));
+
+    // 1.216,00 devidos − 200,00 pagos. Antes essa diferença sumia.
+    expect(r.multaFgts!.multa40).toBeCloseTo(1016, 2);
+  });
+
+  it("não deixa a multa ficar negativa quando o pago supera o devido", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", { multa40Recebida: 99999 }));
+    expect(r.multaFgts!.multa40).toBe(0);
   });
 
   it("mostra os meses de contrato mesmo quando eles ficam fora da base", () => {
@@ -105,28 +128,11 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
     expect(experiencia.totalFinal).toBeLessThan(pedido.totalFinal);
   });
 
-  it("na dispensa durante a experiência, o período trabalhado fica fora da base", () => {
-    const r = calculate(makeInput("dispensa_na_experiencia"));
-
-    // A empresa paga os 40% no TRCT da rescisão antecipada.
-    expect(r.multaFgts!.incluiPeriodoContrato).toBe(false);
-    expect(r.multaFgts!.fgtsPeriodoContrato).toBe(0);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE, 2);
-  });
-
-  it("volta o período trabalhado para a base quando a empresa não pagou os 40%", () => {
-    const r = calculate(makeInput("dispensa_na_experiencia", { fgtsContratoNaoPago: true }));
-
-    expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
-  });
-
-  it("no pedido de demissão durante a experiência, o período trabalhado entra", () => {
-    const r = calculate(makeInput("pedido_na_experiencia"));
-
-    // Ela pediu para sair: ninguém pagou 40% nenhum.
-    expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
+  it("a base completa vale também nas hipóteses de experiência", () => {
+    for (const motivo of ["fim_experiencia", "dispensa_na_experiencia", "pedido_na_experiencia"] as const) {
+      const r = calculate(makeInput(motivo));
+      expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
+    }
   });
 
   it("não calcula multa quando o cálculo está desativado", () => {
@@ -136,15 +142,40 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
 });
 
 describe("verbas rescisórias por motivo da saída", () => {
-  it("não repete o aviso já pago na dispensa sem justa causa, mas cobra a multa do 477", () => {
-    const r = calculate(makeInput("dispensa_sem_justa_causa"));
+  it("na dispensa, apura o aviso do contrato projetado e abate o que foi pago", () => {
+    // Na saída ela tinha 6 meses de casa: 30 dias de aviso, R$ 2.000.
+    // Projetado até o fim da estabilidade dá 1 ano: 33 dias, R$ 2.200.
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      recebidoNaRescisao: {
+        avisoPrevio: 2000,
+        decimoTerceiroAviso: 0,
+        feriasAviso: 0,
+        multa477: 0,
+        outros: 0,
+      },
+    }));
 
-    expect(r.tabela2!.temAviso).toBe(false);
-    expect(r.tabela2!.avisoProvio).toBe(0);
-    expect(r.tabela2!.decimoTerceiroAviso).toBe(0);
-    expect(r.tabela2!.feriasComTercoAviso).toBe(0);
-    expect(r.tabela2!.multa477).toBe(2000);
-    expect(r.tabela2!.total).toBe(2000);
+    expect(r.tabela2!.temAviso).toBe(true);
+    expect(r.tabela2!.avisoProvio).toBeCloseTo(2200, 2);
+    expect(r.tabela2!.aviso!.recebido).toBe(2000);
+    // A diferença de 200 é o que o atalho antigo escondia.
+    expect(r.tabela2!.aviso!.diferenca).toBeCloseTo(200, 2);
+  });
+
+  it("cada verba abate da sua, e o pago a mais numa não cobre outra", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      recebidoNaRescisao: {
+        avisoPrevio: 99999,
+        decimoTerceiroAviso: 0,
+        feriasAviso: 0,
+        multa477: 0,
+        outros: 0,
+      },
+    }));
+
+    expect(r.tabela2!.aviso!.diferenca).toBe(0);
+    // A multa do 477 continua inteira: o excesso pago no aviso não a quita.
+    expect(r.tabela2!.multa477Verba!.diferenca).toBe(2000);
   });
 
   it("inclui aviso, 13º, férias e multa do art. 477 no pedido de demissão", () => {
@@ -166,10 +197,13 @@ describe("verbas rescisórias por motivo da saída", () => {
     }
   });
 
-  it("abate das rescisórias o que ela recebeu na saída, no contrato com carteira", () => {
-    const r = calculate(makeInput("dispensa_na_experiencia", { recebidoNaSaida: 500 }));
+  it("abate do subtotal os outros valores recebidos na rescisão", () => {
+    // Sem aviso na experiência, sobra a multa do 477 de 2.000.
+    const r = calculate(makeInput("dispensa_na_experiencia", {
+      recebidoNaRescisao: { ...RESCISAO_RECEBIDA_VAZIA, outros: 500 },
+    }));
 
-    expect(r.tabela2!.jaRecebido).toBe(500);
+    expect(r.tabela2!.outrosRecebidos).toBe(500);
     expect(r.tabela2!.total).toBe(1500);
   });
 });
@@ -291,9 +325,9 @@ describe("período trabalhado sem registro", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa", { vinculo: makeVinculo() }));
     const mf = r.multaFgts!;
 
-    expect(mf.fgtsPeriodoContrato).toBe(0);
+    expect(mf.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
     expect(mf.fgtsPeriodoVinculo).toBeCloseTo(1146.67, 2);
-    expect(mf.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + 1146.67, 2);
+    expect(mf.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO + 1146.67, 2);
   });
 
   it("abate das rescisórias o aviso e as verbas já pagas na saída", () => {

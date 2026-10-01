@@ -11,6 +11,40 @@ import { Baby } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useNavigate } from "react-router-dom";
 
+/**
+ * Linha de verba rescisória. Quando a empresa pagou alguma coisa, mostra o
+ * devido e o abatimento embaixo, para a diferença pedida ficar demonstrada.
+ */
+const LinhaRescisoria = ({
+  nome,
+  nota,
+  devido,
+  verba,
+}: {
+  nome: string;
+  nota?: string;
+  devido: number;
+  verba?: { devido: number; recebido: number; diferenca: number };
+}) => {
+  const pago = verba?.recebido ?? 0;
+  return (
+    <tr className="border-t">
+      <td className="py-2.5 px-4">
+        {nome}
+        {nota && <span className="block text-xs text-muted-foreground mt-0.5">{nota}</span>}
+        {pago > 0 && (
+          <span className="block text-xs text-muted-foreground mt-0.5">
+            devido {formatBRL(devido)} − pago {formatBRL(pago)}
+          </span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 text-right font-medium">
+        {formatBRL(verba ? verba.diferenca : devido)}
+      </td>
+    </tr>
+  );
+};
+
 interface ResultCardProps {
   input: CalcInput;
   result: CalcResult;
@@ -71,12 +105,12 @@ Subtotal do período sem registro: ${formatBRL(vin.total)}`;
   if (t2) {
     resumo += `
 
-Cálculo das verbas rescisórias:${temAviso ? `
-- Aviso prévio: ${formatBRL(t2.avisoProvio)}
-- 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)}
-- Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)}` : ""}
-- Multa art. 477: ${formatBRL(t2.multa477)}${t2.jaRecebido > 0 ? `
-- Já recebido na saída: − ${formatBRL(t2.jaRecebido)}` : ""}
+Cálculo das verbas rescisórias (devido / pago / diferença):${temAviso ? `
+- Aviso prévio: ${formatBRL(t2.avisoProvio)} / ${formatBRL(t2.aviso?.recebido ?? 0)} / ${formatBRL(t2.aviso?.diferenca ?? t2.avisoProvio)}
+- 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)} / ${formatBRL(t2.decimoAviso?.recebido ?? 0)} / ${formatBRL(t2.decimoAviso?.diferenca ?? t2.decimoTerceiroAviso)}
+- Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)} / ${formatBRL(t2.feriasAviso?.recebido ?? 0)} / ${formatBRL(t2.feriasAviso?.diferenca ?? t2.feriasComTercoAviso)}` : ""}
+- Multa art. 477: ${formatBRL(t2.multa477)} / ${formatBRL(t2.multa477Verba?.recebido ?? 0)} / ${formatBRL(t2.multa477Verba?.diferenca ?? t2.multa477)}${(t2.outrosRecebidos ?? 0) > 0 ? `
+- Outros recebidos: − ${formatBRL(t2.outrosRecebidos ?? 0)}` : ""}
 Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
   }
 
@@ -86,7 +120,9 @@ Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
 Multa 40% FGTS:
 - FGTS sobre indenização: ${formatBRL(mf.fgtsRescisorio)}
 ${input.admissao ? `- FGTS estimado do contrato: ${formatBRL(mf.fgtsPeriodoContrato)}\n` : ""}${mf.fgtsPeriodoVinculo > 0 ? `- FGTS do período sem registro: ${formatBRL(mf.fgtsPeriodoVinculo)}\n` : ""}- Base total: ${formatBRL(mf.baseTotalFgts)}
-- Multa 40%: ${formatBRL(mf.multa40)}`;
+- Multa 40% devida: ${formatBRL(mf.multa40Devida ?? mf.multa40)}${(mf.multa40Paga ?? 0) > 0 ? `
+- Paga na rescisão: − ${formatBRL(mf.multa40Paga ?? 0)}` : ""}
+- Multa 40% a receber: ${formatBRL(mf.multa40)}`;
   }
 
   if (op) {
@@ -369,40 +405,41 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                       somem em vez de aparecerem zeradas. */}
                   {temAviso && (
                     <>
-                      <tr className="border-t">
-                        <td className="py-2.5 px-4">
-                          Aviso prévio
-                          <span className="block text-xs text-muted-foreground mt-0.5">
-                            {t2.avisoDias ?? 30} dias (Lei 12.506/2011)
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
-                      </tr>
-                      <tr className="border-t">
-                        <td className="py-2.5 px-4">13º sobre aviso</td>
-                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.decimoTerceiroAviso)}</td>
-                      </tr>
-                      <tr className="border-t">
-                        <td className="py-2.5 px-4">Férias + 1/3 sobre aviso</td>
-                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.feriasComTercoAviso)}</td>
-                      </tr>
+                      <LinhaRescisoria
+                        nome="Aviso prévio"
+                        nota={`${t2.avisoDias ?? 30} dias (Lei 12.506/2011)`}
+                        devido={t2.avisoProvio}
+                        verba={t2.aviso}
+                      />
+                      <LinhaRescisoria
+                        nome="13º sobre aviso"
+                        devido={t2.decimoTerceiroAviso}
+                        verba={t2.decimoAviso}
+                      />
+                      <LinhaRescisoria
+                        nome="Férias + 1/3 sobre aviso"
+                        devido={t2.feriasComTercoAviso}
+                        verba={t2.feriasAviso}
+                      />
                     </>
                   )}
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">
-                      Multa art. 477
-                      {!temAviso && (
-                        <span className="block text-xs text-muted-foreground mt-0.5">
-                          Verbas da estabilidade que já deveriam ter sido pagas na saída
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
-                  </tr>
-                  {t2.jaRecebido > 0 && (
+                  <LinhaRescisoria
+                    nome="Multa art. 477"
+                    {...(temAviso
+                      ? {}
+                      : { nota: "Verbas da estabilidade que já deveriam ter sido pagas na saída" })}
+                    devido={t2.multa477}
+                    verba={t2.multa477Verba}
+                  />
+                  {(t2.outrosRecebidos ?? 0) > 0 && (
                     <tr className="border-t">
-                      <td className="py-2.5 px-4">Já recebido na saída</td>
-                      <td className="py-2.5 px-4 text-right font-medium">− {formatBRL(t2.jaRecebido)}</td>
+                      <td className="py-2.5 px-4">
+                        Outros valores recebidos
+                        {t2.outrosDescricao ? ` (${t2.outrosDescricao})` : ""}
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium">
+                        − {formatBRL(t2.outrosRecebidos ?? 0)}
+                      </td>
                     </tr>
                   )}
                   <tr className="border-t bg-primary/5">
@@ -462,8 +499,26 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                     <td className="py-2.5 px-4 font-medium">Base total do FGTS</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(mf.baseTotalFgts)}</td>
                   </tr>
+                  {(mf.multa40Paga ?? 0) > 0 && (
+                    <>
+                      <tr className="border-t">
+                        <td className="py-2.5 px-4">Multa de 40% devida</td>
+                        <td className="py-2.5 px-4 text-right font-medium">
+                          {formatBRL(mf.multa40Devida ?? mf.multa40)}
+                        </td>
+                      </tr>
+                      <tr className="border-t">
+                        <td className="py-2.5 px-4">Paga na rescisão</td>
+                        <td className="py-2.5 px-4 text-right font-medium">
+                          − {formatBRL(mf.multa40Paga ?? 0)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                   <tr className="border-t bg-primary/5">
-                    <td className="py-3 px-4 font-bold">Multa de 40%</td>
+                    <td className="py-3 px-4 font-bold">
+                      {(mf.multa40Paga ?? 0) > 0 ? "Diferença da multa de 40%" : "Multa de 40%"}
+                    </td>
                     <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(mf.multa40)}</td>
                   </tr>
                 </tbody>

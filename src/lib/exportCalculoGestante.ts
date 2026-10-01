@@ -108,18 +108,16 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     rows.push(['', '', '', '', '', '', '']);
     if (temAviso) {
       rows.push(
-        ['Rescisórias', 'Aviso prévio', 'Aviso prévio proporcional ao tempo de serviço', `${t2.avisoDias ?? 30} dias × (${fmt(sal)} / 30)`, t2.avisoProvio, 'R$', 'Lei 12.506/2011 — devido na dispensa projetada para o fim da estabilidade'],
-        ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio', `${fmt(t2.avisoProvio)} / 12`, t2.decimoTerceiroAviso, 'R$', ''],
-        ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso prévio', `(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)}`, t2.feriasComTercoAviso, 'R$', ''],
+        ['Rescisórias', 'Aviso prévio', 'Aviso prévio proporcional ao tempo de serviço, já abatido o que foi pago', `${t2.avisoDias ?? 30} dias × (${fmt(sal)} / 30) = devido ${fmt(t2.avisoProvio)} − pago ${fmt(t2.aviso?.recebido ?? 0)}`, t2.aviso?.diferenca ?? t2.avisoProvio, 'R$', 'Lei 12.506/2011 — devido na dispensa projetada para o fim da estabilidade'],
+        ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio, já abatido o que foi pago', `devido ${fmt(t2.decimoTerceiroAviso)} − pago ${fmt(t2.decimoAviso?.recebido ?? 0)}`, t2.decimoAviso?.diferenca ?? t2.decimoTerceiroAviso, 'R$', ''],
+        ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso, já abatido o que foi pago', `devido ${fmt(t2.feriasComTercoAviso)} − pago ${fmt(t2.feriasAviso?.recebido ?? 0)}`, t2.feriasAviso?.diferenca ?? t2.feriasComTercoAviso, 'R$', ''],
       );
     }
     rows.push(
-      ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `${fmt(sal)}`, t2.multa477, 'R$', temAviso ? '' : 'Contrato a termo: sem aviso prévio, mas a multa é devida pelas verbas da estabilidade não pagas na saída'],
+      ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `devido ${fmt(t2.multa477)} − pago ${fmt(t2.multa477Verba?.recebido ?? 0)}`, t2.multa477Verba?.diferenca ?? t2.multa477, 'R$', temAviso ? '' : 'Contrato a termo: sem aviso prévio, mas a multa é devida pelas verbas da estabilidade não pagas na saída'],
     );
-    // Só entra quando houve abatimento. Antes a linha vinha sempre, com − 0,00,
-    // e a planilha ficava com uma verba que o memorial não mostrava.
-    if ((t2.jaRecebido ?? 0) > 0) {
-      rows.push(['Rescisórias', 'Já recebido na saída', 'Aviso e demais verbas pagas na rescisão', `− ${fmt(t2.jaRecebido)}`, -t2.jaRecebido, 'R$', '']);
+    if ((t2.outrosRecebidos ?? 0) > 0) {
+      rows.push(['Rescisórias', 'Outros valores recebidos', 'Abatimento informado pelo usuário', `− ${fmt(t2.outrosRecebidos ?? 0)}`, -(t2.outrosRecebidos ?? 0), 'R$', t2.outrosDescricao ?? '']);
     }
     rows.push(
       ['Rescisórias', 'Subtotal Verbas Rescisórias', 'Soma das verbas rescisórias', 'Aviso + 13º + Férias + Multa 477 − recebido', t2.total, 'R$', ''],
@@ -142,7 +140,11 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
         ...(input.admissao ? [fmt(mf.fgtsPeriodoContrato)] : []),
         ...((mf.fgtsPeriodoVinculo ?? 0) > 0 ? [fmt(mf.fgtsPeriodoVinculo)] : []),
       ].join(' + '), mf.baseTotalFgts, 'R$', ''],
-      ['Multa FGTS', 'Multa de 40%', 'Multa de 40% sobre base total', `${fmt(mf.baseTotalFgts)} × 40%`, mf.multa40, 'R$', ''],
+      ['Multa FGTS', 'Multa de 40% devida', 'Multa de 40% sobre a base total', `${fmt(mf.baseTotalFgts)} × 40%`, mf.multa40Devida ?? mf.multa40, 'R$', ''],
+      ...((mf.multa40Paga ?? 0) > 0 ?
+        [['Multa FGTS', 'Multa de 40% paga na rescisão', 'Abatimento do que a empresa já pagou', `− ${fmt(mf.multa40Paga ?? 0)}`, -(mf.multa40Paga ?? 0), 'R$', '']] :
+        []),
+      ['Multa FGTS', 'Multa de 40% a receber', 'Diferença entre o devido e o pago', `${fmt(mf.multa40Devida ?? mf.multa40)} − ${fmt(mf.multa40Paga ?? 0)}`, mf.multa40, 'R$', ''],
     );
   }
 

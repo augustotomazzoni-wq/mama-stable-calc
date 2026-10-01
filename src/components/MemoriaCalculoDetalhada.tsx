@@ -288,20 +288,38 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
 
           {temAviso ? (
             <>
+              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                Reconhecida a nulidade, o contrato se projeta até o fim da estabilidade, e é nesse
+                momento que ocorre a dispensa. O aviso devido é o daquela data — mais tempo de
+                casa, mais dias (Lei 12.506/2011) — e o que a empresa pagou na saída abate verba a
+                verba. O que sobra é a diferença que se pede.
+              </p>
               <LinhaVerba
                 titulo="Aviso prévio"
-                valor={t2.avisoProvio}
-                formula={`${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = ${fmt(t2.avisoProvio)} — Lei 12.506/2011`}
+                valor={t2.aviso?.diferenca ?? t2.avisoProvio}
+                formula={
+                  t2.aviso && t2.aviso.recebido > 0 ?
+                  `${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = devido ${fmt(t2.avisoProvio)} − pago ${fmt(t2.aviso.recebido)} = ${fmt(t2.aviso.diferenca)}` :
+                  `${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = ${fmt(t2.avisoProvio)} — Lei 12.506/2011`
+                }
               />
               <LinhaVerba
                 titulo="13º sobre aviso"
-                valor={t2.decimoTerceiroAviso}
-                formula={`${fmt(t2.avisoProvio)} ÷ 12 = ${fmt(t2.decimoTerceiroAviso)}`}
+                valor={t2.decimoAviso?.diferenca ?? t2.decimoTerceiroAviso}
+                formula={
+                  t2.decimoAviso && t2.decimoAviso.recebido > 0 ?
+                  `devido ${fmt(t2.decimoTerceiroAviso)} − pago ${fmt(t2.decimoAviso.recebido)} = ${fmt(t2.decimoAviso.diferenca)}` :
+                  `${fmt(t2.avisoProvio)} ÷ 12 = ${fmt(t2.decimoTerceiroAviso)}`
+                }
               />
               <LinhaVerba
                 titulo="Férias + 1/3 sobre aviso"
-                valor={t2.feriasComTercoAviso}
-                formula={`(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
+                valor={t2.feriasAviso?.diferenca ?? t2.feriasComTercoAviso}
+                formula={
+                  t2.feriasAviso && t2.feriasAviso.recebido > 0 ?
+                  `devido ${fmt(t2.feriasComTercoAviso)} − pago ${fmt(t2.feriasAviso.recebido)} = ${fmt(t2.feriasAviso.diferenca)}` :
+                  `(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`
+                }
               />
             </>
           ) : (
@@ -313,19 +331,25 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           )}
           <LinhaVerba
             titulo="Multa art. 477"
-            valor={t2.multa477}
+            valor={t2.multa477Verba?.diferenca ?? t2.multa477}
             formula={
+              t2.multa477Verba && t2.multa477Verba.recebido > 0 ?
+              `devido ${fmt(t2.multa477)} − pago ${fmt(t2.multa477Verba.recebido)} = ${fmt(t2.multa477Verba.diferenca)}` :
               temAviso ?
               `${fmt(sal)} (1 salário)` :
               `${fmt(sal)} (1 salário) — devida pelas verbas da estabilidade que já deveriam ter sido pagas na saída`
             }
           />
 
-          {t2.jaRecebido > 0 && (
+          {(t2.outrosRecebidos ?? 0) > 0 && (
             <LinhaVerba
-              titulo="Já recebido na saída"
-              valor={-t2.jaRecebido}
-              formula="Abatimento do aviso e demais verbas pagas na rescisão"
+              titulo="Outros valores recebidos"
+              valor={-(t2.outrosRecebidos ?? 0)}
+              formula={
+                t2.outrosDescricao ?
+                `Abatimento — ${t2.outrosDescricao}` :
+                "Abatimento de valores pagos na rescisão"
+              }
             />
           )}
 
@@ -376,7 +400,17 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
               map(fmt).join(" + ")} = {fmt(mf.baseTotalFgts)}
             </p>
           </div>
-          <SubtotalLinha titulo="Multa de 40% do FGTS" valor={mf.multa40} />
+          {(mf.multa40Paga ?? 0) > 0 && (
+            <LinhaVerba
+              titulo="Multa de 40% paga na rescisão"
+              valor={-(mf.multa40Paga ?? 0)}
+              formula={`devido ${fmt(mf.multa40Devida ?? mf.multa40)} − pago ${fmt(mf.multa40Paga ?? 0)} = ${fmt(mf.multa40)}`}
+            />
+          )}
+          <SubtotalLinha
+            titulo={(mf.multa40Paga ?? 0) > 0 ? "Diferença da multa de 40%" : "Multa de 40% do FGTS"}
+            valor={mf.multa40}
+          />
 
           <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
             {semRegistro ?

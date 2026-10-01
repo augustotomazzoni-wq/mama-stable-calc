@@ -176,15 +176,13 @@ export interface CalcInput {
   admissao: Date | null;
   calcularMultaFgts: boolean;
   /**
-   * A empresa devia ter pago os 40% do FGTS na saída e não pagou. Traz o
-   * período trabalhado de volta para a base da multa.
+   * O que a empresa pagou na rescisão, verba a verba. Abate de cada verba
+   * correspondente no cálculo projetado até o fim da estabilidade.
    */
-  fgtsContratoNaoPago?: boolean;
-  /**
-   * O que ela recebeu na saída, no contrato com carteira — a indenização do
-   * art. 479 na experiência rompida antes do prazo, por exemplo. Abate das
-   * verbas rescisórias. O período sem registro tem o campo próprio dele.
-   */
+  recebidoNaRescisao?: RescisaoRecebida | null;
+  /** Multa de 40% do FGTS paga na rescisão. Abate da multa apurada. */
+  multa40Recebida?: number;
+  /** Campo antigo, de valor único. Entra como "outros" para não se perder. */
   recebidoNaSaida?: number;
   vinculo?: VinculoInput | null;
   opcionais?: PedidosOpcionais | null;
@@ -203,17 +201,47 @@ export interface Tabela1 {
   total: number;
 }
 
+/**
+ * O que a empresa pagou na rescisão, verba a verba. Cada valor abate da verba
+ * correspondente — não do total —, para o memorial mostrar devido, pago e
+ * diferença em cada linha, como já faz o módulo do período sem registro.
+ */
+export interface RescisaoRecebida {
+  avisoPrevio: number;
+  decimoTerceiroAviso: number;
+  feriasAviso: number;
+  multa477: number;
+  outros: number;
+  outrosDescricao?: string;
+}
+
+export const RESCISAO_RECEBIDA_VAZIA: RescisaoRecebida = {
+  avisoPrevio: 0,
+  decimoTerceiroAviso: 0,
+  feriasAviso: 0,
+  multa477: 0,
+  outros: 0,
+};
+
 export interface Tabela2 {
   /** Dias de aviso prévio aplicados (Lei 12.506/2011). */
   avisoDias: number;
+  /** Valores devidos no contrato projetado até o fim da estabilidade. */
   avisoProvio: number;
   decimoTerceiroAviso: number;
   feriasComTercoAviso: number;
   multa477: number;
   /** Aviso e demais rescisórias já pagas, abatidas do subtotal. */
   jaRecebido: number;
-  /** false quando o contrato era a termo ou o aviso já foi pago na saída. */
+  /** false no contrato a termo, em que não existe aviso prévio. */
   temAviso?: boolean;
+  /** Devido, pago e diferença de cada verba. */
+  aviso?: VinculoVerba;
+  decimoAviso?: VinculoVerba;
+  feriasAviso?: VinculoVerba;
+  multa477Verba?: VinculoVerba;
+  outrosRecebidos?: number;
+  outrosDescricao?: string;
   total: number;
 }
 
@@ -224,8 +252,13 @@ export interface MultaFgtsResult {
   /** FGTS devido no período sem registro, quando há módulo de vínculo. */
   fgtsPeriodoVinculo: number;
   baseTotalFgts: number;
+  /** 40% sobre a base completa, antes de abater o que a empresa pagou. */
+  multa40Devida?: number;
+  /** Multa de 40% que a empresa pagou na rescisão. */
+  multa40Paga?: number;
+  /** A diferença — é ela que entra no total. */
   multa40: number;
-  /** false quando a multa sobre o FGTS do contrato já foi paga na rescisão. */
+  /** Mantido para os cálculos antigos; hoje a base é sempre completa. */
   incluiPeriodoContrato: boolean;
 }
 
@@ -265,47 +298,42 @@ export function resolveTipoRegistro(input: Pick<CalcInput, 'tipoRegistro' | 'vin
 /**
  * Aviso prévio e seus reflexos (13º e férias sobre o aviso).
  *
- * Não entram em duas situações:
+ * Só não existem no contrato de experiência: contrato a termo nasce com data
+ * para acabar, e não há aviso a ser dado. O que a estabilidade garante são os
+ * salários do período e seus reflexos (Súmula 244, III, do TST), não a
+ * conversão do contrato para todos os efeitos.
  *
- * - Dispensa sem justa causa com carteira em contrato por prazo indeterminado:
- *   o aviso foi pago na rescisão, e cobrá-lo de novo seria pedir em dobro.
- * - Qualquer hipótese de contrato de experiência: em contrato a termo não há
- *   aviso prévio. O que a estabilidade garante são os salários do período e
- *   seus reflexos, não a conversão do contrato para todos os efeitos.
+ * Nas demais hipóteses o aviso é sempre apurado — inclusive na dispensa sem
+ * justa causa, em que ele foi pago na saída. Reconhecida a nulidade, o
+ * contrato se projeta até o fim da estabilidade, e o aviso devido é o daquele
+ * momento: mais tempo de casa, mais dias (Lei 12.506/2011), e sobre o salário
+ * base. O que foi pago na rescisão abate; o que sobra é diferença devida.
+ * Zerar a rubrica, como se fazia antes, escondia essa diferença.
  *
  * Sem registro não existe contrato de experiência válido — faltam forma
  * escrita e anotação —, então o contrato é tratado como indeterminado.
  */
 export function temAvisoPrevio(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
   if (tipoRegistro === 'sem_registro') return true;
-  if (ehContratoDeExperiencia(motivo)) return false;
-  return motivo !== 'dispensa_sem_justa_causa';
+  return !ehContratoDeExperiencia(motivo);
 }
 
 /**
- * Multa de 40% sobre o FGTS do tempo efetivamente trabalhado, antes da
- * estabilidade. A pergunta é sempre a mesma: a empresa já pagou essa multa na
- * saída? Se pagou, ela não entra no pedido; o que se cobra são os 40% sobre o
- * FGTS do período de estabilidade.
+ * O FGTS do tempo efetivamente trabalhado entra sempre na base dos 40%.
  *
- * - Dispensa sem justa causa, em contrato indeterminado ou durante a
- *   experiência: a empresa paga os 40% no TRCT. Fica de fora.
- * - Término do contrato no prazo: no fim do termo a empresa não deve 40%
- *   nenhum, então o período trabalhado entra na base.
- * - Pedido de demissão, em qualquer contrato: ninguém pagou 40%. Entra.
- * - Sem registro: nada foi depositado nem pago. Entra.
+ * Antes esta função decidia se o período entrava ou não, conforme a empresa
+ * tivesse pago a multa na saída. Era um atalho: dava o mesmo número só quando
+ * o pagamento tinha sido exato. Agora a base é sempre completa e o que a
+ * empresa pagou de multa é informado e abatido — assim uma multa paga sobre
+ * base menor do que a devida aparece como diferença em vez de sumir.
  *
- * `naoPagouNaSaida` cobre o caso em que a empresa devia ter pago e não pagou —
- * aí o período volta para a base mesmo na dispensa.
+ * Mantida como função para a tela continuar explicando a composição da base.
  */
 export function incluiFgtsDoContrato(
-  motivo: MotivoSaida,
-  tipoRegistro: TipoRegistro = 'com_carteira',
-  naoPagouNaSaida = false,
+  _motivo?: MotivoSaida,
+  _tipoRegistro?: TipoRegistro,
 ): boolean {
-  if (tipoRegistro === 'sem_registro') return true;
-  if (naoPagouNaSaida) return true;
-  return motivo !== 'dispensa_sem_justa_causa' && motivo !== 'dispensa_na_experiencia';
+  return true;
 }
 
 export function calcPrevisaoParto(concepcao: Date): Date {
@@ -365,14 +393,27 @@ export function calcAvisoDias(inicioContrato: Date | null, fimContrato: Date): n
 function calcTabela2(
   salario: number,
   avisoDias: number,
-  jaRecebido: number,
+  recebido: RescisaoRecebida,
   temAviso: boolean,
 ): Tabela2 {
   const avisoProvio = temAviso ? salario * (avisoDias / 30) : 0;
   const decimoTerceiroAviso = temAviso ? avisoProvio / 12 : 0;
   const feriasComTercoAviso = temAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
   const multa477 = salario;
-  const bruto = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
+
+  // Cada verba abate da sua. O pago a mais numa não cobre o devido de outra —
+  // é o mesmo critério do período sem registro.
+  const aviso = montaVerba(avisoProvio, temAviso ? recebido.avisoPrevio : 0);
+  const decimoAviso = montaVerba(decimoTerceiroAviso, temAviso ? recebido.decimoTerceiroAviso : 0);
+  const feriasAviso = montaVerba(feriasComTercoAviso, temAviso ? recebido.feriasAviso : 0);
+  const multa477Verba = montaVerba(multa477, recebido.multa477);
+
+  const somaDiferencas =
+  aviso.diferenca + decimoAviso.diferenca + feriasAviso.diferenca + multa477Verba.diferenca;
+  const jaRecebido =
+  aviso.recebido + decimoAviso.recebido + feriasAviso.recebido +
+  multa477Verba.recebido + recebido.outros;
+
   return {
     avisoDias: temAviso ? avisoDias : 0,
     avisoProvio,
@@ -381,7 +422,13 @@ function calcTabela2(
     multa477,
     jaRecebido,
     temAviso,
-    total: Math.max(0, bruto - jaRecebido),
+    aviso,
+    decimoAviso,
+    feriasAviso,
+    multa477Verba,
+    outrosRecebidos: recebido.outros,
+    outrosDescricao: recebido.outrosDescricao,
+    total: Math.max(0, somaDiferencas - recebido.outros),
   };
 }
 
@@ -473,31 +520,21 @@ function calcMultaFgts(
   salarioBase: number,
 ): MultaFgtsResult {
   const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
-  const incluiPeriodoContrato = incluiFgtsDoContrato(
-    motivo,
-    tipoRegistro,
-    input.fgtsContratoNaoPago ?? false,
-  );
   let mesesTrabalhados = 0;
   let fgtsPeriodoContrato = 0;
 
   if (input.admissao) {
-    // Os meses trabalhados seguem informados mesmo quando não entram na base,
-    // para que a memória de cálculo mostre o período que foi desconsiderado.
     mesesTrabalhados = ceilMonthsBetween(input.admissao, input.demissao);
-    if (incluiPeriodoContrato) {
-      // Sobre o salário base — o piso, quando ele supera o que foi pago. Antes
-      // esta linha usava o salário pago, e só ela: a indenização, o aviso e a
-      // multa do 477 já vinham sobre o piso. O FGTS do contrato ficava menor do
-      // que devia e, com ele, a base da multa de 40%.
-      fgtsPeriodoContrato = mesesTrabalhados * salarioBase * aliquota;
-    }
+    // Sobre o salário base — o piso, quando ele supera o que foi pago, como
+    // em todas as outras verbas.
+    fgtsPeriodoContrato = mesesTrabalhados * salarioBase * aliquota;
   }
 
-  // O FGTS do período sem registro nunca foi depositado nem teve multa paga,
-  // então entra na base em qualquer motivo de saída.
+  // A base é sempre completa: estabilidade + contrato registrado + período sem
+  // registro. O que a empresa pagou de multa abate depois.
   const baseTotalFgts = fgtsRescisorio + fgtsPeriodoContrato + fgtsPeriodoVinculo;
-  const multa40 = baseTotalFgts * 0.4;
+  const multa40Devida = baseTotalFgts * 0.4;
+  const multa40Paga = Math.max(0, input.multa40Recebida ?? 0);
 
   return {
     fgtsRescisorio,
@@ -505,17 +542,23 @@ function calcMultaFgts(
     fgtsPeriodoContrato,
     fgtsPeriodoVinculo,
     baseTotalFgts,
-    multa40,
-    incluiPeriodoContrato,
+    multa40Devida,
+    multa40Paga,
+    multa40: Math.max(0, multa40Devida - multa40Paga),
+    incluiPeriodoContrato: true,
   };
 }
 
 function calcOpcionais(op: PedidosOpcionais | null | undefined, tabela2: Tabela2 | null): OpcionaisResult | null {
   if (!op) return null;
 
-  // A multa do 467 recai sobre as rescisórias em si, não sobre a multa do 477.
+  // A multa do 467 recai sobre as rescisórias em si, não sobre a multa do 477,
+  // e só sobre o que continua em aberto: o que a empresa já pagou não é verba
+  // incontroversa inadimplida.
   const baseRescisorias = tabela2 ?
-  Math.max(0, tabela2.avisoProvio + tabela2.decimoTerceiroAviso + tabela2.feriasComTercoAviso - tabela2.jaRecebido) :
+  (tabela2.aviso?.diferenca ?? 0) +
+  (tabela2.decimoAviso?.diferenca ?? 0) +
+  (tabela2.feriasAviso?.diferenca ?? 0) :
   0;
   const multa467 = op.multa467 ? baseRescisorias * 0.5 : 0;
   const seguroDesemprego = Math.max(0, op.seguroDesemprego || 0);
@@ -596,14 +639,25 @@ export function calculate(input: CalcInput): CalcResult {
   const avisoDias = calcAvisoDias(inicioContrato, fimEstabilidade);
 
   // A tabela 2 existe sempre: mesmo sem aviso prévio, a multa do art. 477 é
-  // devida. O que ela recebeu na saída abate dos dois lados — o informado no
-  // contrato com carteira e o informado no módulo do período sem registro.
-  const recebidoNaSaida =
-  Math.max(0, input.recebidoNaSaida ?? 0) + (input.vinculo?.recebido.rescisorias ?? 0);
+  // devida. O que a empresa pagou abate verba a verba; o campo antigo de valor
+  // único e o do módulo sem registro entram como "outros", que abate do
+  // subtotal.
+  const r = input.recebidoNaRescisao;
+  const recebido: RescisaoRecebida = {
+    avisoPrevio: Math.max(0, r?.avisoPrevio ?? 0),
+    decimoTerceiroAviso: Math.max(0, r?.decimoTerceiroAviso ?? 0),
+    feriasAviso: Math.max(0, r?.feriasAviso ?? 0),
+    multa477: Math.max(0, r?.multa477 ?? 0),
+    outros:
+    Math.max(0, r?.outros ?? 0) +
+    Math.max(0, input.recebidoNaSaida ?? 0) +
+    (input.vinculo?.recebido.rescisorias ?? 0),
+    ...(r?.outrosDescricao ? { outrosDescricao: r.outrosDescricao } : {}),
+  };
   const tabela2 = calcTabela2(
     salarioBase,
     avisoDias,
-    recebidoNaSaida,
+    recebido,
     temAvisoPrevio(motivoSaida, tipoRegistro),
   );
 
