@@ -46,6 +46,7 @@ import {
   calculate,
   incluiFgtsDoContrato,
   ehContratoDeExperiencia,
+  presumeRescisaoPaga,
   CalcInput,
   CalcResult,
   ConcepcaoInfo,
@@ -230,6 +231,9 @@ const Index = () => {
   });
   const mudarRecebido = (campo: keyof typeof recebidoRescisao, valor: string) =>
   setRecebidoRescisao((atual) => ({ ...atual, [campo]: valor }));
+  // Na dispensa o padrão é rescisão quitada; os campos só abrem ao marcar que
+  // ela não recebeu tudo.
+  const [naoRecebeuTudo, setNaoRecebeuTudo] = useState(false);
 
   // Passo 3, só quando há período sem registro
   const [vinculoSalario, setVinculoSalario] = useState("");
@@ -352,6 +356,10 @@ const Index = () => {
       setMotivoSaida("dispensa_sem_justa_causa");
     }
   };
+
+  // Reproduz na tela o que o cálculo vai presumir pago, para o número não
+  // aparecer do nada no memorial.
+  const presumeQuitado = presumeRescisaoPaga(motivoSaida, tipoRegistro);
 
   const salarioNumero = Number(salario) || 0;
   const pisoNumero = Number(piso) || 0;
@@ -493,6 +501,7 @@ const Index = () => {
         outrosDescricao: recebidoRescisao.outrosDescricao.trim() || undefined,
       },
       multa40Recebida: valorNumerico(recebidoRescisao.multa40),
+      naoRecebeuTudoNaSaida: naoRecebeuTudo,
       vinculo,
       opcionais: {
         multa467,
@@ -1066,14 +1075,42 @@ const Index = () => {
               <div className="rounded-lg border border-border p-4 space-y-4">
                 <div>
                   <Label className="text-sm font-semibold">O que ela já recebeu na rescisão</Label>
+                  {presumeQuitado ?
                   <p className="text-xs text-muted-foreground mt-1">
-                    Opcional. Preencha o que constar do TRCT: cada valor abate da verba
-                    correspondente, e o que sobrar é a diferença que se pede. Deixe em branco o que
-                    não foi pago.
-                  </p>
+                      Deram a conta: entende-se que no fim do contrato ela recebeu todas as verbas
+                      de uma dispensa sem justa causa — aviso prévio e reflexos, FGTS sobre o aviso
+                      e a multa de 40% sobre o tempo trabalhado. O sistema calcula esses valores
+                      pelo tempo de casa e pelo salário da data da saída e abate sozinho. Só a
+                      multa do art. 477 não se presume paga, porque nasce das verbas da
+                      estabilidade que ficaram em aberto.
+                    </p> :
+                  <p className="text-xs text-muted-foreground mt-1">
+                      Opcional. Preencha o que constar do TRCT: cada valor abate da verba
+                      correspondente, e o que sobrar é a diferença que se pede. Deixe em branco o
+                      que não foi pago.
+                    </p>
+                  }
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                {presumeQuitado &&
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3">
+                    <Checkbox
+                  id="naoRecebeuTudo"
+                  checked={naoRecebeuTudo}
+                  onCheckedChange={(v) => setNaoRecebeuTudo(v === true)}
+                  className="mt-0.5" />
+
+                    <Label htmlFor="naoRecebeuTudo" className="text-xs font-normal cursor-pointer leading-relaxed">
+                      Ela não recebeu tudo na saída
+                      <span className="block text-muted-foreground">
+                        Marque para informar os valores à mão. Sem marcar, vale a presunção acima.
+                      </span>
+                    </Label>
+                  </div>
+                }
+
+                <div
+                  className={`grid gap-3 sm:grid-cols-2 ${presumeQuitado && !naoRecebeuTudo ? "hidden" : ""}`}>
                   <div className="space-y-1.5">
                     <Label htmlFor="recAviso" className="text-xs">Aviso prévio</Label>
                     <Input
@@ -1109,7 +1146,7 @@ const Index = () => {
                       value={recebidoRescisao.multa477}
                       onChange={(e) => mudarRecebido("multa477", e.target.value)} />
                   </div>
-                  {calcularMultaFgts && !empregadaDomestica &&
+                  {calcularMultaFgts && !empregadaDomestica && (!presumeQuitado || naoRecebeuTudo) &&
                   <div className="space-y-1.5">
                       <Label htmlFor="rec40" className="text-xs">Multa de 40% do FGTS</Label>
                       <Input
@@ -1135,7 +1172,7 @@ const Index = () => {
                   </div>
                 </div>
 
-                {valorNumerico(recebidoRescisao.outros) > 0 &&
+                {valorNumerico(recebidoRescisao.outros) > 0 && (!presumeQuitado || naoRecebeuTudo) &&
                 <div className="space-y-1.5">
                     <Label htmlFor="recOutrosDesc" className="text-xs">A que se refere</Label>
                     <Input

@@ -182,6 +182,11 @@ export interface CalcInput {
   recebidoNaRescisao?: RescisaoRecebida | null;
   /** Multa de 40% do FGTS paga na rescisão. Abate da multa apurada. */
   multa40Recebida?: number;
+  /**
+   * Marca que a empresa NÃO pagou tudo na dispensa. Desliga a presunção de
+   * rescisão quitada e faz valer os valores informados à mão.
+   */
+  naoRecebeuTudoNaSaida?: boolean;
   /** Campo antigo, de valor único. Entra como "outros" para não se perder. */
   recebidoNaSaida?: number;
   vinculo?: VinculoInput | null;
@@ -207,6 +212,85 @@ export interface Tabela1 {
   /** Depósito mais a indenização compensatória, quando houver. */
   fgts: number;
   total: number;
+}
+
+/**
+ * Na dispensa sem justa causa presume-se que a empresa pagou as verbas da
+ * rescisão na saída: aviso prévio e reflexos, FGTS sobre o aviso e a multa de
+ * 40% sobre o FGTS do tempo trabalhado. É o que o TRCT normalmente traz.
+ *
+ * Quem pediu a conta, ou saiu no fim do termo da experiência, não recebeu
+ * nada disso — ali não há o que presumir.
+ */
+export function presumeRescisaoPaga(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+  // Sem registro não houve TRCT nenhum.
+  if (tipoRegistro === 'sem_registro') return false;
+  return motivo === 'dispensa_sem_justa_causa' || motivo === 'dispensa_na_experiencia';
+}
+
+/** O que a empresa pagou na saída, mais a multa de 40%, que tem campo próprio. */
+export interface RecebimentoPresumido {
+  rescisao: RescisaoRecebida;
+  multa40: number;
+  /** Dias de aviso considerados — os do tempo de casa na data da saída. */
+  avisoDias: number;
+  mesesTrabalhados: number;
+}
+
+/**
+ * Estima o que constou do TRCT da dispensa.
+ *
+ * Tudo sobre o salário efetivamente pago e sobre o tempo de casa **na data da
+ * saída** — não sobre o contrato projetado. É justamente dessa distância que
+ * nasce a diferença a pedir: menos tempo de casa dava menos dias de aviso, e
+ * um salário abaixo do piso dava uma base menor.
+ */
+export function estimarRecebidoNaDispensa(
+  input: Pick<CalcInput, 'salario' | 'demissao' | 'admissao' | 'empregadaDomestica'>,
+  motivo: MotivoSaida,
+  tipoRegistro: TipoRegistro,
+  inicioContrato: Date | null,
+): RecebimentoPresumido {
+  const vazio: RecebimentoPresumido = {
+    rescisao: { ...RESCISAO_RECEBIDA_VAZIA },
+    multa40: 0,
+    avisoDias: 0,
+    mesesTrabalhados: 0,
+  };
+  if (!presumeRescisaoPaga(motivo, tipoRegistro)) return vazio;
+
+  const salario = Math.max(0, input.salario);
+  const mesesTrabalhados = input.admissao ? mesesDeServico(input.admissao, input.demissao) : 0;
+
+  // No contrato a termo rompido antes do prazo não há aviso prévio — o que a
+  // empresa paga ali é a indenização do art. 479, que vai no campo "outros".
+  const comAviso = temAvisoPrevio(motivo, tipoRegistro);
+  const avisoDias = comAviso ? calcAvisoDias(inicioContrato, input.demissao) : 0;
+  const avisoPrevio = comAviso ? salario * (avisoDias / 30) : 0;
+  const decimoTerceiroAviso = comAviso ? avisoPrevio / 12 : 0;
+  const feriasAviso = comAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
+  const fgtsAviso = (avisoPrevio + decimoTerceiroAviso) * 0.08;
+
+  // A multa de 40% da dispensa recai sobre o FGTS do tempo trabalhado. No
+  // contrato doméstico ela não existe.
+  const fgtsDoContrato = mesesTrabalhados * salario * 0.08;
+  const multa40 = temMultaDe40(input.empregadaDomestica) ? fgtsDoContrato * 0.4 : 0;
+
+  return {
+    rescisao: {
+      avisoPrevio,
+      decimoTerceiroAviso,
+      feriasAviso,
+      fgtsAviso,
+      // A multa do art. 477 não se presume paga: ela nasce justamente de as
+      // verbas da estabilidade não terem sido pagas.
+      multa477: 0,
+      outros: 0,
+    },
+    multa40,
+    avisoDias,
+    mesesTrabalhados,
+  };
 }
 
 /**
@@ -306,6 +390,10 @@ export interface CalcResult {
   tipoRegistro?: TipoRegistro;
   /** Salário usado na estabilidade e na rescisão (o pago ou o piso). */
   salarioBase?: number;
+  /** true quando o abatimento veio da presunção de TRCT pago, não da digitação. */
+  rescisaoPresumidaPaga?: boolean;
+  /** O que a presunção estimou, para o memorial mostrar a origem dos valores. */
+  recebimentoPresumido?: RecebimentoPresumido;
   tipoRescisao: string;
 }
 
@@ -574,6 +662,7 @@ function calcMultaFgts(
   tipoRegistro: TipoRegistro,
   fgtsPeriodoVinculo: number,
   salarioBase: number,
+  multa40Recebida: number,
 ): MultaFgtsResult {
   const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
   let mesesTrabalhados = 0;
@@ -591,7 +680,7 @@ function calcMultaFgts(
   // registro. O que a empresa pagou de multa abate depois.
   const baseTotalFgts = fgtsRescisorio + fgtsPeriodoContrato + fgtsPeriodoVinculo;
   const multa40Devida = baseTotalFgts * 0.4;
-  const multa40Paga = Math.max(0, input.multa40Recebida ?? 0);
+  const multa40Paga = Math.max(0, multa40Recebida);
 
   return {
     fgtsRescisorio,
@@ -713,7 +802,13 @@ export function calculate(input: CalcInput): CalcResult {
   // devida. O que a empresa pagou abate verba a verba; o campo antigo de valor
   // único e o do módulo sem registro entram como "outros", que abate do
   // subtotal.
-  const r = input.recebidoNaRescisao;
+  // Na dispensa, o padrão é que o TRCT foi pago: o sistema estima o que
+  // constou dele e abate. Só quando se marca que ela não recebeu tudo é que
+  // valem os valores digitados à mão.
+  const presumido = estimarRecebidoNaDispensa(input, motivoSaida, tipoRegistro, inicioContrato);
+  const presumeQuitado = presumeRescisaoPaga(motivoSaida, tipoRegistro) && !input.naoRecebeuTudoNaSaida;
+
+  const r = presumeQuitado ? presumido.rescisao : input.recebidoNaRescisao;
   const recebido: RescisaoRecebida = {
     avisoPrevio: Math.max(0, r?.avisoPrevio ?? 0),
     decimoTerceiroAviso: Math.max(0, r?.decimoTerceiroAviso ?? 0),
@@ -747,6 +842,7 @@ export function calculate(input: CalcInput): CalcResult {
       tipoRegistro,
       vinculo?.fgts.devido ?? 0,
       salarioBase,
+      presumeQuitado ? presumido.multa40 : Math.max(0, input.multa40Recebida ?? 0),
     );
   }
 
@@ -786,6 +882,8 @@ export function calculate(input: CalcInput): CalcResult {
     motivoSaida,
     tipoRegistro,
     salarioBase,
+    rescisaoPresumidaPaga: presumeQuitado,
+    ...(presumeQuitado ? { recebimentoPresumido: presumido } : {}),
     tipoRescisao,
   };
 }

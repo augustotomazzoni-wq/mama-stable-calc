@@ -301,6 +301,19 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             {nRescisorias}. Cálculo das Verbas Rescisórias
           </h2>
 
+          {result.rescisaoPresumidaPaga && result.recebimentoPresumido &&
+          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+              Dispensa sem justa causa: presume-se que o TRCT da saída pagou as verbas
+              rescisórias de então
+              {result.recebimentoPresumido.avisoDias > 0 ?
+              ` — aviso prévio de ${result.recebimentoPresumido.avisoDias} dias sobre o salário de ${fmt(input.salario)}, com os reflexos e o FGTS correspondentes` :
+              ""}
+              , mais a multa de 40% sobre o FGTS dos {result.recebimentoPresumido.mesesTrabalhados}{" "}
+              meses trabalhados. Esses valores entram abatidos abaixo. A multa do art. 477 não se
+              presume paga: ela decorre das verbas da estabilidade que ficaram em aberto.
+            </p>
+          }
+
           {temAviso ? (
             <>
               <p className="text-xs text-muted-foreground mb-4 leading-relaxed">

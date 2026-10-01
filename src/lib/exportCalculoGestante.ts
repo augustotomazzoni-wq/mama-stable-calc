@@ -218,6 +218,9 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
       `Período sem registro de ${formatDateBR(vin.inicio)} a ${formatDateBR(vin.fim)} (${vin.meses} meses): verbas apuradas pelo devido e abatidas do que foi comprovadamente pago.` :
       'Sem pedido de reconhecimento de vínculo neste cálculo.'],
     [`Registro: ${TIPO_REGISTRO_LABEL[tipoRegistro]}.`],
+    [result.rescisaoPresumidaPaga && result.recebimentoPresumido ?
+      `Dispensa sem justa causa: presumiu-se pago no TRCT da saída o aviso prévio de ${result.recebimentoPresumido.avisoDias} dias com reflexos e FGTS, e a multa de 40% sobre o FGTS de ${result.recebimentoPresumido.mesesTrabalhados} meses trabalhados. Esses valores já estão abatidos. A multa do art. 477 não se presume paga.` :
+      'Nenhuma verba rescisória foi presumida paga: os abatimentos, se houver, foram informados manualmente.'],
     ...pedidosSemValor(input, result).map((pedido) => [`Pedido sem valor: ${pedido}`]),
     ...alertas.map((a) => [`ATENÇÃO: ${a.mensagem}`]),
     ['Tabela elaborada por Dr. Augusto Tomazzoni Lubenow — OAB 133519.'],

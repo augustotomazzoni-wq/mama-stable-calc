@@ -97,14 +97,20 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
   });
 
   it("cobra a diferença quando a empresa pagou os 40% sobre base menor", () => {
-    const r = calculate(makeInput("dispensa_sem_justa_causa", { multa40Recebida: 200 }));
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      naoRecebeuTudoNaSaida: true,
+      multa40Recebida: 200,
+    }));
 
     // 1.292,27 devidos − 200,00 pagos. Antes essa diferença sumia.
     expect(r.multaFgts!.multa40).toBeCloseTo(1092.27, 2);
   });
 
   it("não deixa a multa ficar negativa quando o pago supera o devido", () => {
-    const r = calculate(makeInput("dispensa_sem_justa_causa", { multa40Recebida: 99999 }));
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      naoRecebeuTudoNaSaida: true,
+      multa40Recebida: 99999,
+    }));
     expect(r.multaFgts!.multa40).toBe(0);
   });
 
@@ -167,28 +173,23 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
 });
 
 describe("verbas rescisórias por motivo da saída", () => {
-  it("na dispensa, apura o aviso do contrato projetado e abate o que foi pago", () => {
-    // Na saída ela tinha 6 meses de casa: 30 dias de aviso, R$ 2.000.
+  it("na dispensa, apura o aviso do contrato projetado e abate o presumido", () => {
+    // Na saída ela tinha 6 meses de casa: 30 dias de aviso, R$ 2.000 — é o que
+    // se presume pago, sem precisar digitar nada.
     // Projetado até o fim da estabilidade dá 1 ano: 33 dias, R$ 2.200.
-    const r = calculate(makeInput("dispensa_sem_justa_causa", {
-      recebidoNaRescisao: {
-        avisoPrevio: 2000,
-        decimoTerceiroAviso: 0,
-        feriasAviso: 0,
-        multa477: 0,
-        outros: 0,
-      },
-    }));
+    const r = calculate(makeInput("dispensa_sem_justa_causa"));
 
+    expect(r.rescisaoPresumidaPaga).toBe(true);
     expect(r.tabela2!.temAviso).toBe(true);
     expect(r.tabela2!.avisoProvio).toBeCloseTo(2200, 2);
-    expect(r.tabela2!.aviso!.recebido).toBe(2000);
+    expect(r.tabela2!.aviso!.recebido).toBeCloseTo(2000, 2);
     // A diferença de 200 é o que o atalho antigo escondia.
     expect(r.tabela2!.aviso!.diferenca).toBeCloseTo(200, 2);
   });
 
   it("cada verba abate da sua, e o pago a mais numa não cobre outra", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      naoRecebeuTudoNaSaida: true,
       recebidoNaRescisao: {
         avisoPrevio: 99999,
         decimoTerceiroAviso: 0,
@@ -225,11 +226,62 @@ describe("verbas rescisórias por motivo da saída", () => {
   it("abate do subtotal os outros valores recebidos na rescisão", () => {
     // Sem aviso na experiência, sobra a multa do 477 de 2.000.
     const r = calculate(makeInput("dispensa_na_experiencia", {
+      naoRecebeuTudoNaSaida: true,
       recebidoNaRescisao: { ...RESCISAO_RECEBIDA_VAZIA, outros: 500 },
     }));
 
     expect(r.tabela2!.outrosRecebidos).toBe(500);
     expect(r.tabela2!.total).toBe(1500);
+  });
+});
+
+describe("presunção de rescisão paga na dispensa", () => {
+  it("presume pagos o aviso, os reflexos e a multa de 40% sem precisar digitar", () => {
+    const p = calculate(makeInput("dispensa_sem_justa_causa")).recebimentoPresumido!;
+
+    // Tudo sobre o tempo de casa na data da saída: 6 meses -> 30 dias.
+    expect(p.avisoDias).toBe(30);
+    expect(p.rescisao.avisoPrevio).toBeCloseTo(2000, 2);
+    expect(p.rescisao.decimoTerceiroAviso).toBeCloseTo(166.67, 2);
+    expect(p.multa40).toBeCloseTo(FGTS_CONTRATO * 0.4, 2);
+  });
+
+  it("a multa do art. 477 nunca se presume paga", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa"));
+
+    expect(r.recebimentoPresumido!.rescisao.multa477).toBe(0);
+    expect(r.tabela2!.multa477Verba!.diferenca).toBe(2000);
+  });
+
+  it("marcar que não recebeu tudo desliga a presunção", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", { naoRecebeuTudoNaSaida: true }));
+
+    expect(r.rescisaoPresumidaPaga).toBe(false);
+    expect(r.tabela2!.aviso!.recebido).toBe(0);
+    expect(r.tabela2!.aviso!.diferenca).toBeCloseTo(2200, 2);
+  });
+
+  it("quem pediu a conta não tem nada presumido como pago", () => {
+    for (const motivo of ["pedido_demissao", "fim_experiencia", "pedido_na_experiencia"] as const) {
+      expect(calculate(makeInput(motivo)).rescisaoPresumidaPaga).toBe(false);
+    }
+  });
+
+  it("na experiência rompida antes do prazo não há aviso a presumir", () => {
+    const r = calculate(makeInput("dispensa_na_experiencia"));
+
+    expect(r.rescisaoPresumidaPaga).toBe(true);
+    expect(r.recebimentoPresumido!.rescisao.avisoPrevio).toBe(0);
+    // Mas a multa de 40% do TRCT segue presumida paga.
+    expect(r.recebimentoPresumido!.multa40).toBeCloseTo(FGTS_CONTRATO * 0.4, 2);
+  });
+
+  it("a multa de 40% é apurada sobre todo o período e abate o presumido", () => {
+    const mf = calculate(makeInput("dispensa_sem_justa_causa")).multaFgts!;
+
+    expect(mf.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO + FGTS_AVISO, 2);
+    expect(mf.multa40Paga).toBeCloseTo(FGTS_CONTRATO * 0.4, 2);
+    expect(mf.multa40).toBeCloseTo((mf.multa40Devida ?? 0) - FGTS_CONTRATO * 0.4, 2);
   });
 });
 
