@@ -334,7 +334,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             formula={
             mf.incluiPeriodoContrato === false ?
             `${mf.mesesTrabalhados} meses de contrato fora da base — a multa de 40% sobre esse período já foi paga na rescisão` :
-            `${mf.mesesTrabalhados} meses × ${fmt(input.salario)} × ${aliquotaLabel} = ${fmt(mf.fgtsPeriodoContrato)}`
+            `${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel} = ${fmt(mf.fgtsPeriodoContrato)}`
             } />
 
           }

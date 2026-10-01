@@ -385,6 +385,7 @@ function calcMultaFgts(
   motivo: MotivoSaida,
   tipoRegistro: TipoRegistro,
   fgtsPeriodoVinculo: number,
+  salarioBase: number,
 ): MultaFgtsResult {
   const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
   const incluiPeriodoContrato = incluiFgtsDoContrato(motivo, tipoRegistro);
@@ -396,7 +397,11 @@ function calcMultaFgts(
     // para que a memória de cálculo mostre o período que foi desconsiderado.
     mesesTrabalhados = ceilMonthsBetween(input.admissao, input.demissao);
     if (incluiPeriodoContrato) {
-      fgtsPeriodoContrato = mesesTrabalhados * input.salario * aliquota;
+      // Sobre o salário base — o piso, quando ele supera o que foi pago. Antes
+      // esta linha usava o salário pago, e só ela: a indenização, o aviso e a
+      // multa do 477 já vinham sobre o piso. O FGTS do contrato ficava menor do
+      // que devia e, com ele, a base da multa de 40%.
+      fgtsPeriodoContrato = mesesTrabalhados * salarioBase * aliquota;
     }
   }
 
@@ -507,7 +512,14 @@ export function calculate(input: CalcInput): CalcResult {
 
   let multaFgts: MultaFgtsResult | null = null;
   if (input.calcularMultaFgts) {
-    multaFgts = calcMultaFgts(input, tabela1.fgts, motivoSaida, tipoRegistro, vinculo?.fgts.devido ?? 0);
+    multaFgts = calcMultaFgts(
+      input,
+      tabela1.fgts,
+      motivoSaida,
+      tipoRegistro,
+      vinculo?.fgts.devido ?? 0,
+      salarioBase,
+    );
   }
 
   const opcionais = calcOpcionais(input.opcionais, tabela2);

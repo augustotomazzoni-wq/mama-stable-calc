@@ -110,7 +110,13 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
       ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio', `${fmt(t2.avisoProvio)} / 12`, t2.decimoTerceiroAviso, 'R$', ''],
       ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso prévio', `(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)}`, t2.feriasComTercoAviso, 'R$', ''],
       ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `${fmt(sal)}`, t2.multa477, 'R$', ''],
-      ['Rescisórias', 'Já recebido na saída', 'Aviso e demais verbas pagas na rescisão', `− ${fmt(t2.jaRecebido ?? 0)}`, -(t2.jaRecebido ?? 0), 'R$', ''],
+    );
+    // Só entra quando houve abatimento. Antes a linha vinha sempre, com − 0,00,
+    // e a planilha ficava com uma verba que o memorial não mostrava.
+    if ((t2.jaRecebido ?? 0) > 0) {
+      rows.push(['Rescisórias', 'Já recebido na saída', 'Aviso e demais verbas pagas na rescisão', `− ${fmt(t2.jaRecebido)}`, -t2.jaRecebido, 'R$', '']);
+    }
+    rows.push(
       ['Rescisórias', 'Subtotal Verbas Rescisórias', 'Soma das verbas rescisórias', 'Aviso + 13º + Férias + Multa 477 − recebido', t2.total, 'R$', ''],
     );
   }
@@ -120,10 +126,17 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
       ['', '', '', '', '', '', ''],
       ['Multa FGTS', 'FGTS sobre verbas indenizatórias', 'FGTS apurado na indenização', `Valor da indenização: ${fmt(mf.fgtsRescisorio)}`, mf.fgtsRescisorio, 'R$', ''],
       ...(input.admissao ?
-        [['Multa FGTS', 'FGTS estimado do contrato registrado', 'FGTS acumulado no período registrado', mf.incluiPeriodoContrato === false ? `${mf.mesesTrabalhados} meses fora da base` : `${mf.mesesTrabalhados} meses × ${fmt(input.salario)} × ${aliquotaLabel}`, mf.fgtsPeriodoContrato, 'R$', mf.incluiPeriodoContrato === false ? 'Multa de 40% sobre esse período já paga na rescisão' : '']] :
+        [['Multa FGTS', 'FGTS estimado do contrato registrado', 'FGTS acumulado no período registrado', mf.incluiPeriodoContrato === false ? `${mf.mesesTrabalhados} meses fora da base` : `${mf.mesesTrabalhados} meses × ${fmt(sal)} × ${aliquotaLabel}`, mf.fgtsPeriodoContrato, 'R$', mf.incluiPeriodoContrato === false ? 'Multa de 40% sobre esse período já paga na rescisão' : '']] :
         []),
-      ['Multa FGTS', 'FGTS do período sem registro', 'FGTS devido e nunca depositado', `Apurado no grupo Vínculo`, mf.fgtsPeriodoVinculo ?? 0, 'R$', ''],
-      ['Multa FGTS', 'Base total do FGTS', 'Soma dos FGTS que compõem a base', `${fmt(mf.fgtsRescisorio)} + ${fmt(mf.fgtsPeriodoContrato)} + ${fmt(mf.fgtsPeriodoVinculo ?? 0)}`, mf.baseTotalFgts, 'R$', ''],
+      // Mesmo critério do memorial: sem período sem registro, a linha não existe.
+      ...((mf.fgtsPeriodoVinculo ?? 0) > 0 ?
+        [['Multa FGTS', 'FGTS do período sem registro', 'FGTS devido e nunca depositado', 'Apurado no grupo Vínculo', mf.fgtsPeriodoVinculo, 'R$', '']] :
+        []),
+      ['Multa FGTS', 'Base total do FGTS', 'Soma dos FGTS que compõem a base', [
+        fmt(mf.fgtsRescisorio),
+        ...(input.admissao ? [fmt(mf.fgtsPeriodoContrato)] : []),
+        ...((mf.fgtsPeriodoVinculo ?? 0) > 0 ? [fmt(mf.fgtsPeriodoVinculo)] : []),
+      ].join(' + '), mf.baseTotalFgts, 'R$', ''],
       ['Multa FGTS', 'Multa de 40%', 'Multa de 40% sobre base total', `${fmt(mf.baseTotalFgts)} × 40%`, mf.multa40, 'R$', ''],
     );
   }
