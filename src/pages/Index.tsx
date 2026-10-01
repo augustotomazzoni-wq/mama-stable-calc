@@ -47,6 +47,8 @@ import {
   incluiFgtsDoContrato,
   ehContratoDeExperiencia,
   presumeRescisaoPaga,
+  resolveMotivoSaida,
+  resolveTipoRegistro,
   avisoPadrao,
   AVISO_NA_SAIDA_LABEL,
   AvisoNaSaida,
@@ -57,7 +59,9 @@ import {
   TipoRegistro } from
 "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays, formatBRL } from "@/lib/dateUtils";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSessao } from "@/hooks/useSessao";
+import { useRascunho } from "@/hooks/useRascunho";
 import { registrarAcesso } from "@/lib/db";
 
 type RecebidoCampo = "salarios" | "decimoTerceiro" | "ferias" | "fgts" | "rescisorias" | "outros";
@@ -322,6 +326,121 @@ const Index = () => {
   const [seguroDesemprego, setSeguroDesemprego] = useState("");
   const [outrosPedidosValor, setOutrosPedidosValor] = useState("");
   const [outrosPedidosDescricao, setOutrosPedidosDescricao] = useState("");
+
+  // Retrato do formulário para o rascunho. Só os campos digitados: o
+  // resultado e as telas abertas não entram.
+  const retrato = useMemo(
+    () => ({
+      nome, nascimento, tipoRegistro, salario, piso, mostrarPiso,
+      acao, tipoContrato, avisoNaSaida, avisoDescontadoValor, empregadaDomestica,
+      vinculoInicio, admissao, demissao, concepcao, partoPrevisao,
+      editarMesesManual, mesesManual, calcularMultaFgts,
+      recebidoRescisao, naoRecebeuTudo,
+      vinculoSalario, recebiaSalario, recebido, recebidoOutrosDescricao,
+      seguroDesemprego, outrosPedidosValor, outrosPedidosDescricao,
+    }),
+    [
+      nome, nascimento, tipoRegistro, salario, piso, mostrarPiso,
+      acao, tipoContrato, avisoNaSaida, avisoDescontadoValor, empregadaDomestica,
+      vinculoInicio, admissao, demissao, concepcao, partoPrevisao,
+      editarMesesManual, mesesManual, calcularMultaFgts,
+      recebidoRescisao, naoRecebeuTudo,
+      vinculoSalario, recebiaSalario, recebido, recebidoOutrosDescricao,
+      seguroDesemprego, outrosPedidosValor, outrosPedidosDescricao,
+    ],
+  );
+  // Em branco não vale a pena guardar.
+  const formularioVazio =
+  nome.trim() === "" && salario === "" && demissao === "" && concepcao === "";
+  const { rascunho, descartar } = useRascunho(retrato, formularioVazio);
+  const [rascunhoVisivel, setRascunhoVisivel] = useState(true);
+
+  const retomarRascunho = () => {
+    if (!rascunho) return;
+    const v = rascunho.valores;
+    setNome(v.nome); setNascimento(v.nascimento); setTipoRegistro(v.tipoRegistro);
+    setSalario(v.salario); setPiso(v.piso); setMostrarPiso(v.mostrarPiso);
+    setAcao(v.acao); setTipoContrato(v.tipoContrato);
+    setAvisoNaSaida(v.avisoNaSaida); setAvisoDescontadoValor(v.avisoDescontadoValor);
+    setEmpregadaDomestica(v.empregadaDomestica);
+    setVinculoInicio(v.vinculoInicio); setAdmissao(v.admissao);
+    setDemissao(v.demissao); setConcepcao(v.concepcao); setPartoPrevisao(v.partoPrevisao);
+    setEditarMesesManual(v.editarMesesManual); setMesesManual(v.mesesManual);
+    setCalcularMultaFgts(v.calcularMultaFgts);
+    setRecebidoRescisao(v.recebidoRescisao); setNaoRecebeuTudo(v.naoRecebeuTudo);
+    setVinculoSalario(v.vinculoSalario); setRecebiaSalario(v.recebiaSalario);
+    setRecebido(v.recebido); setRecebidoOutrosDescricao(v.recebidoOutrosDescricao);
+    setSeguroDesemprego(v.seguroDesemprego);
+    setOutrosPedidosValor(v.outrosPedidosValor);
+    setOutrosPedidosDescricao(v.outrosPedidosDescricao);
+    setRascunhoVisivel(false);
+    toast.success("Rascunho retomado.");
+  };
+
+  /** Preenche o formulário a partir de um cálculo salvo, para ajustar e refazer. */
+  const preencherDe = (v: CalcInput) => {
+    const data = (d: Date | null | undefined) => (d ? toInputDate(d) : "");
+    const numero = (n: number | null | undefined) => (n ? String(n) : "");
+    const { acao: a, contrato } = acaoDe(resolveMotivoSaida(v));
+    setNome(v.nome);
+    setNascimento(data(v.nascimento));
+    setTipoRegistro(resolveTipoRegistro(v));
+    setSalario(numero(v.salario));
+    setPiso(numero(v.piso));
+    setMostrarPiso(!!v.piso && v.piso > 0);
+    setAcao(a);
+    setTipoContrato(contrato);
+    setAvisoNaSaida(v.avisoNaSaida ?? "");
+    setAvisoDescontadoValor(numero(v.avisoDescontadoValor));
+    setEmpregadaDomestica(v.empregadaDomestica);
+    setAdmissao(data(v.admissao));
+    setDemissao(data(v.demissao));
+    setConcepcao(data(v.concepcao));
+    setPartoPrevisao(data(v.partoPrevisao));
+    setEditarMesesManual(v.mesesManual !== null);
+    setMesesManual(v.mesesManual !== null ? String(v.mesesManual) : "");
+    setCalcularMultaFgts(v.calcularMultaFgts);
+    setNaoRecebeuTudo(!!v.naoRecebeuTudoNaSaida);
+    const r = v.recebidoNaRescisao;
+    setRecebidoRescisao({
+      avisoPrevio: numero(r?.avisoPrevio),
+      decimoTerceiroAviso: numero(r?.decimoTerceiroAviso),
+      feriasAviso: numero(r?.feriasAviso),
+      fgtsAviso: numero(r?.fgtsAviso),
+      multa477: numero(r?.multa477),
+      multa40: numero(v.multa40Recebida),
+      outros: numero(r?.outros),
+      outrosDescricao: r?.outrosDescricao ?? "",
+    });
+    setVinculoInicio(data(v.vinculo?.inicio));
+    setVinculoSalario(numero(v.vinculo?.salario));
+    setRecebiaSalario(v.vinculo?.recebiaSalario ?? true);
+    setRecebido({
+      salarios: numero(v.vinculo?.recebido.salarios),
+      decimoTerceiro: numero(v.vinculo?.recebido.decimoTerceiro),
+      ferias: numero(v.vinculo?.recebido.ferias),
+      fgts: numero(v.vinculo?.recebido.fgts),
+      rescisorias: numero(v.vinculo?.recebido.rescisorias),
+      outros: numero(v.vinculo?.recebido.outros),
+    });
+    setRecebidoOutrosDescricao(v.vinculo?.recebido.outrosDescricao ?? "");
+    setSeguroDesemprego(numero(v.opcionais?.seguroDesemprego));
+    setOutrosPedidosValor(numero(v.opcionais?.outrosValor));
+    setOutrosPedidosDescricao(v.opcionais?.outrosDescricao ?? "");
+    setStep(1);
+    setRascunhoVisivel(false);
+  };
+
+  // Chegou de "Duplicar e ajustar" numa consulta salva.
+  const duplicarDe = (location.state as { duplicar?: CalcInput } | null)?.duplicar;
+  useEffect(() => {
+    if (!duplicarDe) return;
+    preencherDe(duplicarDe);
+    navigate(location.pathname, { replace: true, state: null });
+    toast.success("Cálculo copiado. Ajuste o que precisar e recalcule.");
+    // Só na chegada: depois o formulário é a verdade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duplicarDe]);
 
   const [result, setResult] = useState<CalcResult | null>(null);
   const [inputData, setInputData] = useState<CalcInput | null>(null);
@@ -648,6 +767,8 @@ const Index = () => {
     setNome("");
     setNascimento("");
     setTipoRegistro("com_carteira");
+    descartar();
+    setRascunhoVisivel(false);
     setAcao("deram_a_conta");
     setTipoContrato("indeterminado");
     setAvisoNaSaida("");
@@ -812,6 +933,35 @@ const Index = () => {
         <div className="print:hidden">
           <StepIndicator currentStep={step} steps={steps} />
         </div>
+
+        {/* Rascunho de um preenchimento interrompido */}
+        {rascunho && rascunhoVisivel && step === 1 && formularioVazio &&
+        <Card className="animate-fade-in border-primary/40 bg-accent/30 print:hidden">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Há um cálculo começado
+                  {rascunho.valores.nome ? ` para ${rascunho.valores.nome}` : ""}.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Salvo em {new Date(rascunho.salvoEm).toLocaleString("pt-BR")} neste navegador.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={retomarRascunho}>Retomar</Button>
+                <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  descartar();
+                  setRascunhoVisivel(false);
+                }}>
+                  Descartar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        }
 
         {/* Passo 1 */}
         {step === 1 &&

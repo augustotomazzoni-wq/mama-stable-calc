@@ -63,6 +63,14 @@ const ConsultaDetalhe = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4 print:hidden">
+          <Button
+            variant="secondary"
+            className="gap-2"
+            onClick={() => navigate("/", { state: { duplicar: input } })}
+            disabled={!input}>
+            <Copy className="w-4 h-4" />
+            Duplicar e ajustar
+          </Button>
           <Button variant="outline" onClick={() => navigate("/consultas")} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Voltar
