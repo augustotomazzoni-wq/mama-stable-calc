@@ -602,11 +602,7 @@ const Index = () => {
     if (semRegistro) {
       return "Base: FGTS de todo o período trabalhado + estabilidade. Sem registro, nada foi pago na saída.";
     }
-    const incluiContrato = incluiFgtsDoContrato(
-      motivoSaida,
-      tipoRegistro,
-      dispensaComFgtsPresumidoPago && fgtsContratoNaoPago,
-    );
+    const incluiContrato = incluiFgtsDoContrato(motivoSaida, tipoRegistro);
     if (registradaDepois) {
       return incluiContrato ?
       "Base: FGTS do período sem registro + do contrato registrado + da estabilidade." :

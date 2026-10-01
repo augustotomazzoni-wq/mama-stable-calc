@@ -198,6 +198,7 @@ export type Database = {
           email: string
           nome: string
           papel: Database["public"]["Enums"]["app_role"]
+          senha_inicial: boolean
           tem_conta: boolean
           ultimo_acesso: string
           usado_em: string
