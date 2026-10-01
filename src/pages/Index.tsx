@@ -47,6 +47,9 @@ import {
   incluiFgtsDoContrato,
   ehContratoDeExperiencia,
   presumeRescisaoPaga,
+  avisoPadrao,
+  AVISO_NA_SAIDA_LABEL,
+  AvisoNaSaida,
   CalcInput,
   CalcResult,
   ConcepcaoInfo,
@@ -113,7 +116,76 @@ const TIPOS_REGISTRO: {
  * Em todos os motivos o ato é nulo e o contrato se projeta até o fim da
  * estabilidade. A diferença está no que a empregada já recebeu ao sair.
  */
-const MOTIVOS_SAIDA: {
+/**
+ * Quem rompeu o contrato. Combinado com o tipo de contrato, dá o motivo da
+ * saída — duas perguntas curtas no lugar de uma lista de cinco cartões longos.
+ */
+const ACOES: { valor: Acao; titulo: string; descricao: string; icone: LucideIcon }[] = [
+  {
+    valor: "deram_a_conta",
+    titulo: "Deram a conta",
+    descricao: "A empresa dispensou. Presume-se que a rescisão foi paga na saída.",
+    icone: UserMinus,
+  },
+  {
+    valor: "ela_pediu",
+    titulo: "Ela pediu a conta",
+    descricao: "Pedido de demissão nulo sem assistência sindical (CLT 500). Nada foi pago.",
+    icone: DoorOpen,
+  },
+  {
+    valor: "acabou_o_prazo",
+    titulo: "Acabou o prazo",
+    descricao: "O contrato a termo chegou ao fim. Só existe no contrato de experiência.",
+    icone: CalendarClock,
+  },
+];
+
+const CONTRATOS: { valor: TipoContrato; titulo: string; descricao: string; icone: LucideIcon }[] = [
+  {
+    valor: "indeterminado",
+    titulo: "Prazo indeterminado",
+    descricao: "Contrato comum, sem data para acabar.",
+    icone: FileText,
+  },
+  {
+    valor: "experiencia",
+    titulo: "Contrato de experiência",
+    descricao: "Contrato a termo. Reconhecida a estabilidade, converte-se em indeterminado.",
+    icone: CalendarClock,
+  },
+];
+
+type Acao = "deram_a_conta" | "ela_pediu" | "acabou_o_prazo";
+type TipoContrato = "indeterminado" | "experiencia";
+
+/** As duas respostas viram o motivo que o cálculo entende. */
+function motivoDe(acao: Acao, contrato: TipoContrato): MotivoSaida {
+  if (contrato === "experiencia") {
+    if (acao === "deram_a_conta") return "dispensa_na_experiencia";
+    if (acao === "ela_pediu") return "pedido_na_experiencia";
+    return "fim_experiencia";
+  }
+  return acao === "deram_a_conta" ? "dispensa_sem_justa_causa" : "pedido_demissao";
+}
+
+/** Caminho inverso, para reabrir um cálculo salvo nos dois seletores. */
+function acaoDe(motivo: MotivoSaida): { acao: Acao; contrato: TipoContrato } {
+  switch (motivo) {
+    case "dispensa_na_experiencia":
+      return { acao: "deram_a_conta", contrato: "experiencia" };
+    case "pedido_na_experiencia":
+      return { acao: "ela_pediu", contrato: "experiencia" };
+    case "fim_experiencia":
+      return { acao: "acabou_o_prazo", contrato: "experiencia" };
+    case "pedido_demissao":
+      return { acao: "ela_pediu", contrato: "indeterminado" };
+    default:
+      return { acao: "deram_a_conta", contrato: "indeterminado" };
+  }
+}
+
+const MOTIVOS_SAIDA_ANTIGOS: {
   valor: MotivoSaida;
   titulo: string;
   descricao: string;
@@ -205,7 +277,12 @@ const Index = () => {
   const [salario, setSalario] = useState("");
   const [piso, setPiso] = useState("");
   const [mostrarPiso, setMostrarPiso] = useState(false);
-  const [motivoSaida, setMotivoSaida] = useState<MotivoSaida>("dispensa_sem_justa_causa");
+  const [acao, setAcao] = useState<Acao>("deram_a_conta");
+  const [tipoContrato, setTipoContrato] = useState<TipoContrato>("indeterminado");
+  const motivoSaida = motivoDe(acao, tipoContrato);
+  // O que aconteceu com o aviso prévio na saída.
+  const [avisoNaSaida, setAvisoNaSaida] = useState<AvisoNaSaida | "">("");
+  const [avisoDescontadoValor, setAvisoDescontadoValor] = useState("");
   const [empregadaDomestica, setEmpregadaDomestica] = useState(false);
 
   // Passo 2
@@ -242,7 +319,6 @@ const Index = () => {
   const [recebidoOutrosDescricao, setRecebidoOutrosDescricao] = useState("");
 
   // Pedidos adicionais, no último passo antes do resultado
-  const [multa467, setMulta467] = useState(false);
   const [seguroDesemprego, setSeguroDesemprego] = useState("");
   const [outrosPedidosValor, setOutrosPedidosValor] = useState("");
   const [outrosPedidosDescricao, setOutrosPedidosDescricao] = useState("");
@@ -346,15 +422,25 @@ const Index = () => {
 
   // Sem forma escrita e anotação não existe contrato de experiência válido: o
   // contrato é tratado como por prazo indeterminado.
-  const motivosVisiveis = semRegistro ?
-  MOTIVOS_SAIDA.filter((m) => !ehContratoDeExperiencia(m.valor)) :
-  MOTIVOS_SAIDA;
+  const contratosVisiveis = semRegistro ?
+  CONTRATOS.filter((c) => c.valor !== "experiencia") :
+  CONTRATOS;
+  // "Acabou o prazo" só existe em contrato a termo.
+  const acoesVisiveis = tipoContrato === "experiencia" ?
+  ACOES :
+  ACOES.filter((a) => a.valor !== "acabou_o_prazo");
 
   const escolherTipoRegistro = (novo: TipoRegistro) => {
     setTipoRegistro(novo);
-    if (novo === "sem_registro" && ehContratoDeExperiencia(motivoSaida)) {
-      setMotivoSaida("dispensa_sem_justa_causa");
+    if (novo === "sem_registro" && tipoContrato === "experiencia") {
+      setTipoContrato("indeterminado");
+      if (acao === "acabou_o_prazo") setAcao("deram_a_conta");
     }
+  };
+
+  const escolherContrato = (novo: TipoContrato) => {
+    setTipoContrato(novo);
+    if (novo === "indeterminado" && acao === "acabou_o_prazo") setAcao("deram_a_conta");
   };
 
   // Reproduz na tela o que o cálculo vai presumir pago, para o número não
@@ -501,10 +587,14 @@ const Index = () => {
         outrosDescricao: recebidoRescisao.outrosDescricao.trim() || undefined,
       },
       multa40Recebida: valorNumerico(recebidoRescisao.multa40),
+      avisoNaSaida: avisoNaSaida || avisoPadrao(motivoSaida),
+      ...(avisoDescontadoValor !== "" ?
+      { avisoDescontadoValor: valorNumerico(avisoDescontadoValor) } :
+      {}),
       naoRecebeuTudoNaSaida: naoRecebeuTudo,
       vinculo,
       opcionais: {
-        multa467,
+        multa467: false,
         seguroDesemprego: valorNumerico(seguroDesemprego),
         outrosValor: valorNumerico(outrosPedidosValor),
         outrosDescricao: outrosPedidosDescricao.trim() || undefined,
@@ -558,7 +648,10 @@ const Index = () => {
     setNome("");
     setNascimento("");
     setTipoRegistro("com_carteira");
-    setMotivoSaida("dispensa_sem_justa_causa");
+    setAcao("deram_a_conta");
+    setTipoContrato("indeterminado");
+    setAvisoNaSaida("");
+    setAvisoDescontadoValor("");
     setEmpregadaDomestica(false);
     setSalario("");
     setPiso("");
@@ -575,7 +668,6 @@ const Index = () => {
     setRecebiaSalario(true);
     setRecebido(RECEBIDO_VAZIO);
     setRecebidoOutrosDescricao("");
-    setMulta467(false);
     setSeguroDesemprego("");
     setOutrosPedidosValor("");
     setOutrosPedidosDescricao("");
@@ -633,18 +725,6 @@ const Index = () => {
         <p className="text-xs text-muted-foreground mt-0.5">
           Opcionais. Só entram no total quando preenchidos.
         </p>
-      </div>
-
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <Label htmlFor="multa467" className="text-sm font-normal cursor-pointer">
-            Multa do art. 467 (50% das rescisórias)
-          </Label>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Costuma ser afastada quando o vínculo é contestado.
-          </p>
-        </div>
-        <Switch id="multa467" checked={multa467} onCheckedChange={setMulta467} />
       </div>
 
       <div className="space-y-1.5">
@@ -836,24 +916,88 @@ const Index = () => {
                 </p>
               </div>
 
-              {/* Motivo da saída */}
+              {/* Que contrato era */}
+              {!semRegistro &&
+            <div className="space-y-2">
+                  <Label className="text-base font-semibold">Que contrato era?</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {contratosVisiveis.map((c) =>
+                <CartaoOpcao
+                  key={c.valor}
+                  ativo={tipoContrato === c.valor}
+                  titulo={c.titulo}
+                  descricao={c.descricao}
+                  Icone={c.icone}
+                  onClick={() => escolherContrato(c.valor)} />
+
+                )}
+                  </div>
+                </div>
+            }
+
+              {/* Quem rompeu */}
               <div className="space-y-2">
                 <Label className="text-base font-semibold">Como ela saiu da empresa?</Label>
                 <div className="grid gap-2">
-                  {motivosVisiveis.map((m) =>
+                  {acoesVisiveis.map((a) =>
                 <CartaoOpcao
-                  key={m.valor}
-                  ativo={motivoSaida === m.valor}
-                  titulo={m.titulo}
-                  descricao={semRegistro && m.descricaoSemRegistro ? m.descricaoSemRegistro : m.descricao}
-                  Icone={m.icone}
-                  onClick={() => setMotivoSaida(m.valor)} />
+                  key={a.valor}
+                  ativo={acao === a.valor}
+                  titulo={a.titulo}
+                  descricao={a.descricao}
+                  Icone={a.icone}
+                  onClick={() => setAcao(a.valor)} />
 
                 )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Em qualquer um dos casos o contrato se projeta até o fim da estabilidade e a dispensa sem justa causa só ocorre ao final.
+                  Em qualquer um dos casos o contrato se projeta até o fim da estabilidade e a
+                  dispensa sem justa causa só ocorre ao final.
                 </p>
+              </div>
+
+              {/* O que houve com o aviso prévio */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">E o aviso prévio?</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(Object.keys(AVISO_NA_SAIDA_LABEL) as AvisoNaSaida[]).map((v) =>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setAvisoNaSaida(v)}
+                  className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                  (avisoNaSaida || avisoPadrao(motivoSaida)) === v ?
+                  "border-primary bg-accent/40 font-medium" :
+                  "border-border hover:bg-muted/50"}`
+                  }>
+                      {AVISO_NA_SAIDA_LABEL[v]}
+                    </button>
+                )}
+                </div>
+                {(avisoNaSaida || avisoPadrao(motivoSaida)) === "descontado" ?
+              <div className="space-y-1.5 rounded-md border border-border bg-muted/40 p-3">
+                    <Label htmlFor="avisoDescontado" className="text-xs">
+                      Quanto a empresa descontou
+                    </Label>
+                    <Input
+                  id="avisoDescontado"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={salario ? `${Number(salario).toFixed(2)} (um salário)` : "0,00"}
+                  value={avisoDescontadoValor}
+                  onChange={(e) => setAvisoDescontadoValor(e.target.value)} />
+
+                    <p className="text-[11px] text-muted-foreground">
+                      Anulado o pedido de demissão, o desconto perde o fundamento e volta para ela
+                      (CLT 487, § 2º). Em branco, usa um salário.
+                    </p>
+                  </div> :
+
+              <p className="text-xs text-muted-foreground">
+                    O aviso indenizado e o cumprido se presumem pagos e abatem do que se pede.
+                  </p>
+              }
               </div>
 
               <Button onClick={() => isStep1Valid && setStep(2)} disabled={!isStep1Valid} className="w-full gap-2 mt-2">

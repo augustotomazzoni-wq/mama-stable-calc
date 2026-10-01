@@ -132,21 +132,30 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
 
   it("no término de experiência no prazo, o período trabalhado entra na base", () => {
     const experiencia = calculate(makeInput("fim_experiencia"));
-    const pedido = calculate(makeInput("pedido_demissao"));
 
-    // Sem aviso prévio, não há FGTS de aviso para somar à base.
+    // Convertido o contrato, o aviso é devido e seu FGTS entra na base.
     expect(experiencia.multaFgts!.baseTotalFgts).toBeCloseTo(
-      FGTS_ESTABILIDADE + FGTS_CONTRATO, 2,
+      FGTS_ESTABILIDADE + FGTS_CONTRATO + FGTS_AVISO, 2,
     );
-    expect(experiencia.multaFgts!.multa40).toBeCloseTo(1216, 2);
-    expect(experiencia.totalFinal).toBeLessThan(pedido.totalFinal);
+    expect(experiencia.multaFgts!.multa40Devida).toBeCloseTo(1292.27, 2);
+    // No fim do termo nada foi pago, então nada se abate.
+    expect(experiencia.multaFgts!.multa40Paga).toBe(0);
   });
 
   it("a base completa vale também nas hipóteses de experiência", () => {
     for (const motivo of ["fim_experiencia", "dispensa_na_experiencia", "pedido_na_experiencia"] as const) {
       const r = calculate(makeInput(motivo));
-      expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
+      expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(
+        FGTS_ESTABILIDADE + FGTS_CONTRATO + FGTS_AVISO, 2,
+      );
     }
+  });
+
+  it("na dispensa da experiência, os 40% do TRCT se presumem pagos", () => {
+    const r = calculate(makeInput("dispensa_na_experiencia"));
+
+    // A empresa paga os 40% na rescisão antecipada, então eles abatem.
+    expect(r.multaFgts!.multa40Paga).toBeCloseTo(FGTS_CONTRATO * 0.4, 2);
   });
 
   it("não há multa de 40% no contrato doméstico", () => {
@@ -188,7 +197,7 @@ describe("verbas rescisórias por motivo da saída", () => {
   });
 
   it("cada verba abate da sua, e o pago a mais numa não cobre outra", () => {
-    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+    const r = calculate(makeInput("pedido_demissao", {
       naoRecebeuTudoNaSaida: true,
       recebidoNaRescisao: {
         avisoPrevio: 99999,
@@ -215,24 +224,67 @@ describe("verbas rescisórias por motivo da saída", () => {
     expect(r.tabela2!.multa477).toBe(2000);
   });
 
-  it("não tem aviso prévio em nenhuma hipótese de experiência, só a multa do 477", () => {
+  it("o aviso é devido na experiência, pela conversão do contrato", () => {
     for (const motivo of ["fim_experiencia", "dispensa_na_experiencia", "pedido_na_experiencia"] as const) {
       const r = calculate(makeInput(motivo));
-      expect(r.tabela2!.temAviso).toBe(false);
-      expect(r.tabela2!.avisoProvio).toBe(0);
-      expect(r.tabela2!.multa477).toBe(2000);
+      expect(r.tabela2!.temAviso).toBe(true);
+      expect(r.tabela2!.avisoProvio).toBeCloseTo(2200, 2);
+      // Em contrato a termo não se paga aviso, então nada se presume pago.
+      expect(r.tabela2!.aviso!.recebido).toBe(0);
     }
+  });
+
+  it("a multa do 477 só não cabe na dispensa de contrato indeterminado", () => {
+    expect(calculate(makeInput("dispensa_sem_justa_causa")).tabela2!.multa477).toBe(0);
+    for (const motivo of ["pedido_demissao", "fim_experiencia", "dispensa_na_experiencia", "pedido_na_experiencia"] as const) {
+      expect(calculate(makeInput(motivo)).tabela2!.multa477).toBe(2000);
+    }
+  });
+
+  it("sem registro, a multa do 477 cabe mesmo na dispensa", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      tipoRegistro: "sem_registro",
+      vinculo: makeVinculo(),
+    }));
+    expect(r.tabela2!.multa477).toBe(2000);
+  });
+
+  it("devolve o aviso descontado quando o pedido de demissão é anulado", () => {
+    const sem = calculate(makeInput("pedido_demissao"));
+    const com = calculate(makeInput("pedido_demissao", { avisoNaSaida: "descontado" }));
+
+    // Sem valor informado, devolve um salário (CLT 487, § 2º).
+    expect(com.tabela2!.devolucaoAvisoDescontado).toBe(2000);
+    expect(com.tabela2!.total).toBeCloseTo(sem.tabela2!.total + 2000, 2);
+  });
+
+  it("respeita o valor informado do desconto", () => {
+    const r = calculate(makeInput("pedido_demissao", {
+      avisoNaSaida: "descontado",
+      avisoDescontadoValor: 1200,
+    }));
+    expect(r.tabela2!.devolucaoAvisoDescontado).toBe(1200);
+  });
+
+  it("o aviso cumprido se presume pago, como o indenizado", () => {
+    const indenizado = calculate(makeInput("dispensa_sem_justa_causa", { avisoNaSaida: "indenizado" }));
+    const cumprido = calculate(makeInput("dispensa_sem_justa_causa", { avisoNaSaida: "cumprido" }));
+
+    expect(cumprido.tabela2!.aviso!.recebido).toBeCloseTo(indenizado.tabela2!.aviso!.recebido, 2);
   });
 
   it("abate do subtotal os outros valores recebidos na rescisão", () => {
     // Sem aviso na experiência, sobra a multa do 477 de 2.000.
+    const semOutros = calculate(makeInput("dispensa_na_experiencia", {
+      naoRecebeuTudoNaSaida: true,
+    }));
     const r = calculate(makeInput("dispensa_na_experiencia", {
       naoRecebeuTudoNaSaida: true,
       recebidoNaRescisao: { ...RESCISAO_RECEBIDA_VAZIA, outros: 500 },
     }));
 
     expect(r.tabela2!.outrosRecebidos).toBe(500);
-    expect(r.tabela2!.total).toBe(1500);
+    expect(r.tabela2!.total).toBeCloseTo(semOutros.tabela2!.total - 500, 2);
   });
 });
 
@@ -248,8 +300,9 @@ describe("presunção de rescisão paga na dispensa", () => {
   });
 
   it("a multa do art. 477 nunca se presume paga", () => {
-    const r = calculate(makeInput("dispensa_sem_justa_causa"));
+    const r = calculate(makeInput("dispensa_na_experiencia"));
 
+    expect(r.rescisaoPresumidaPaga).toBe(true);
     expect(r.recebimentoPresumido!.rescisao.multa477).toBe(0);
     expect(r.tabela2!.multa477Verba!.diferenca).toBe(2000);
   });
@@ -272,6 +325,7 @@ describe("presunção de rescisão paga na dispensa", () => {
     const r = calculate(makeInput("dispensa_na_experiencia"));
 
     expect(r.rescisaoPresumidaPaga).toBe(true);
+    // O aviso é devido pela conversão, mas em contrato a termo nada foi pago.
     expect(r.recebimentoPresumido!.rescisao.avisoPrevio).toBe(0);
     // Mas a multa de 40% do TRCT segue presumida paga.
     expect(r.recebimentoPresumido!.multa40).toBeCloseTo(FGTS_CONTRATO * 0.4, 2);

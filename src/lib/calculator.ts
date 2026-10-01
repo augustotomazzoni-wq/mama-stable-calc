@@ -62,6 +62,36 @@ export function ehContratoDeExperiencia(motivo: MotivoSaida): boolean {
 }
 
 /**
+ * Foi a empresa que rompeu, pagando a rescisão da dispensa sem justa causa.
+ * É o que separa as duas famílias de ação: na dispensa há TRCT a presumir
+ * pago; na nulidade do pedido de demissão não houve rescisão nenhuma.
+ */
+export function ehDispensaPelaEmpresa(motivo: MotivoSaida): boolean {
+  return motivo === 'dispensa_sem_justa_causa' || motivo === 'dispensa_na_experiencia';
+}
+
+/**
+ * O que aconteceu com o aviso prévio na saída.
+ *
+ * `descontado` é o caso da empregada que pede demissão e não cumpre o aviso:
+ * a empresa desconta um salário da rescisão (CLT 487, § 2º). Anulado o pedido
+ * de demissão, esse desconto perde o fundamento e tem de ser devolvido.
+ */
+export type AvisoNaSaida = 'indenizado' | 'cumprido' | 'descontado' | 'nenhum';
+
+export const AVISO_NA_SAIDA_LABEL: Record<AvisoNaSaida, string> = {
+  indenizado: 'Indenizado — pago sem trabalhar',
+  cumprido: 'Cumprido — ela trabalhou o aviso',
+  descontado: 'Descontado — não cumpriu e a empresa descontou',
+  nenhum: 'Não houve aviso prévio',
+};
+
+/** Sem indicação, a dispensa paga o aviso e as demais hipóteses não têm aviso. */
+export function avisoPadrao(motivo: MotivoSaida): AvisoNaSaida {
+  return motivo === 'dispensa_sem_justa_causa' ? 'indenizado' : 'nenhum';
+}
+
+/**
  * Como era o registro do contrato. Define o que se presume pago na saída:
  * sem carteira, nada foi pago, qualquer que seja o motivo.
  */
@@ -135,8 +165,13 @@ export interface VinculoResult {
 
 /** Pedidos que o advogado decide incluir caso a caso. */
 export interface PedidosOpcionais {
-  /** Multa de 50% sobre as rescisórias incontroversas (CLT 467). */
-  multa467: boolean;
+  /**
+   * Não é mais usada. O escritório não pede a multa do art. 467 em nenhum
+   * modelo: numa ação que discute a nulidade da dispensa a reclamada contesta
+   * tudo, e sem verba incontroversa a multa não se sustenta. Mantida só para
+   * os cálculos antigos continuarem abrindo.
+   */
+  multa467?: boolean;
   /** Indenização pelo seguro-desemprego não recebido (Súm. 389, II, TST). */
   seguroDesemprego: number;
   /** Dano moral ou outro pedido de valor arbitrado. */
@@ -145,6 +180,7 @@ export interface PedidosOpcionais {
 }
 
 export interface OpcionaisResult {
+  /** Sempre zero: a multa do art. 467 saiu dos cálculos. */
   multa467: number;
   seguroDesemprego: number;
   outros: number;
@@ -189,6 +225,13 @@ export interface CalcInput {
   naoRecebeuTudoNaSaida?: boolean;
   /** Campo antigo, de valor único. Entra como "outros" para não se perder. */
   recebidoNaSaida?: number;
+  /** O que aconteceu com o aviso prévio na saída. */
+  avisoNaSaida?: AvisoNaSaida;
+  /**
+   * Quanto a empresa descontou da rescisão pelo aviso não cumprido. Anulado o
+   * pedido de demissão, volta para a empregada. Em branco, usa um salário.
+   */
+  avisoDescontadoValor?: number;
   vinculo?: VinculoInput | null;
   opcionais?: PedidosOpcionais | null;
   /** Data que faz as vezes do ajuizamento na contagem da prescrição. */
@@ -225,7 +268,7 @@ export interface Tabela1 {
 export function presumeRescisaoPaga(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
   // Sem registro não houve TRCT nenhum.
   if (tipoRegistro === 'sem_registro') return false;
-  return motivo === 'dispensa_sem_justa_causa' || motivo === 'dispensa_na_experiencia';
+  return ehDispensaPelaEmpresa(motivo);
 }
 
 /** O que a empresa pagou na saída, mais a multa de 40%, que tem campo próprio. */
@@ -246,7 +289,7 @@ export interface RecebimentoPresumido {
  * um salário abaixo do piso dava uma base menor.
  */
 export function estimarRecebidoNaDispensa(
-  input: Pick<CalcInput, 'salario' | 'demissao' | 'admissao' | 'empregadaDomestica'>,
+  input: Pick<CalcInput, 'salario' | 'demissao' | 'admissao' | 'empregadaDomestica' | 'avisoNaSaida'>,
   motivo: MotivoSaida,
   tipoRegistro: TipoRegistro,
   inicioContrato: Date | null,
@@ -262,13 +305,15 @@ export function estimarRecebidoNaDispensa(
   const salario = Math.max(0, input.salario);
   const mesesTrabalhados = input.admissao ? mesesDeServico(input.admissao, input.demissao) : 0;
 
-  // No contrato a termo rompido antes do prazo não há aviso prévio — o que a
-  // empresa paga ali é a indenização do art. 479, que vai no campo "outros".
-  const comAviso = temAvisoPrevio(motivo, tipoRegistro);
-  const avisoDias = comAviso ? calcAvisoDias(inicioContrato, input.demissao) : 0;
-  const avisoPrevio = comAviso ? salario * (avisoDias / 30) : 0;
-  const decimoTerceiroAviso = comAviso ? avisoPrevio / 12 : 0;
-  const feriasAviso = comAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
+  // Só se presume pago o aviso que a empresa efetivamente deu — indenizado ou
+  // cumprido. No contrato a termo não existe aviso a dar, e no aviso
+  // descontado ela não recebeu nada: recebeu a menos.
+  const aviso = input.avisoNaSaida ?? avisoPadrao(motivo);
+  const pagouAviso = aviso === 'indenizado' || aviso === 'cumprido';
+  const avisoDias = pagouAviso ? calcAvisoDias(inicioContrato, input.demissao) : 0;
+  const avisoPrevio = pagouAviso ? salario * (avisoDias / 30) : 0;
+  const decimoTerceiroAviso = pagouAviso ? avisoPrevio / 12 : 0;
+  const feriasAviso = pagouAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
   const fgtsAviso = (avisoPrevio + decimoTerceiroAviso) * 0.08;
 
   // A multa de 40% da dispensa recai sobre o FGTS do tempo trabalhado. No
@@ -340,6 +385,10 @@ export interface Tabela2 {
   /** FGTS sobre o aviso e o 13º dele (Súmula 305 do TST). */
   fgtsSobreAviso?: number;
   multa477: number;
+  /** false na dispensa de contrato indeterminado, em que nada ficou em aberto. */
+  temMulta477?: boolean;
+  /** Desconto do aviso não cumprido, devolvido com a nulidade (CLT 487, § 2º). */
+  devolucaoAvisoDescontado?: number;
   /** Aviso e demais rescisórias já pagas, abatidas do subtotal. */
   jaRecebido: number;
   /** false no contrato a termo, em que não existe aviso prévio. */
@@ -392,6 +441,8 @@ export interface CalcResult {
   salarioBase?: number;
   /** true quando o abatimento veio da presunção de TRCT pago, não da digitação. */
   rescisaoPresumidaPaga?: boolean;
+  /** O que aconteceu com o aviso prévio na saída. */
+  avisoNaSaida?: AvisoNaSaida;
   /** O que a presunção estimou, para o memorial mostrar a origem dos valores. */
   recebimentoPresumido?: RecebimentoPresumido;
   tipoRescisao: string;
@@ -427,9 +478,22 @@ export function resolveTipoRegistro(input: Pick<CalcInput, 'tipoRegistro' | 'vin
  * Sem registro não existe contrato de experiência válido — faltam forma
  * escrita e anotação —, então o contrato é tratado como indeterminado.
  */
-export function temAvisoPrevio(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+export function temAvisoPrevio(_motivo?: MotivoSaida, _tipoRegistro?: TipoRegistro): boolean {
+  return true;
+}
+
+/**
+ * A multa do art. 477 sanciona o atraso no pagamento das verbas rescisórias.
+ *
+ * Não cabe numa única hipótese: a dispensa sem justa causa de contrato por
+ * prazo indeterminado, em que a empresa pagou a rescisão correta na saída e a
+ * conta corre dali para a frente. Em todas as outras alguma verba ficou em
+ * aberto desde a saída — no contrato a termo não se pagou aviso, e na nulidade
+ * do pedido de demissão não se pagou nada.
+ */
+export function temMulta477(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
   if (tipoRegistro === 'sem_registro') return true;
-  return !ehContratoDeExperiencia(motivo);
+  return motivo !== 'dispensa_sem_justa_causa';
 }
 
 /**
@@ -531,6 +595,8 @@ function calcTabela2(
   recebido: RescisaoRecebida,
   temAviso: boolean,
   aliquotaFgts: number,
+  comMulta477: boolean,
+  devolucaoAvisoDescontado: number,
 ): Tabela2 {
   const avisoProvio = temAviso ? salario * (avisoDias / 30) : 0;
   const decimoTerceiroAviso = temAviso ? avisoProvio / 12 : 0;
@@ -539,7 +605,7 @@ function calcTabela2(
   // sobre ele incide FGTS — Súmula 305 do TST. Vale também para o 13º do
   // aviso; as férias ficam de fora por serem indenizadas.
   const fgtsSobreAviso = (avisoProvio + decimoTerceiroAviso) * aliquotaFgts;
-  const multa477 = salario;
+  const multa477 = comMulta477 ? salario : 0;
 
   // Cada verba abate da sua. O pago a mais numa não cobre o devido de outra —
   // é o mesmo critério do período sem registro.
@@ -551,7 +617,7 @@ function calcTabela2(
 
   const somaDiferencas =
   aviso.diferenca + decimoAviso.diferenca + feriasAviso.diferenca +
-  fgtsAviso.diferenca + multa477Verba.diferenca;
+  fgtsAviso.diferenca + multa477Verba.diferenca + devolucaoAvisoDescontado;
   const jaRecebido =
   aviso.recebido + decimoAviso.recebido + feriasAviso.recebido +
   fgtsAviso.recebido + multa477Verba.recebido + recebido.outros;
@@ -563,6 +629,8 @@ function calcTabela2(
     feriasComTercoAviso,
     fgtsSobreAviso,
     multa477,
+    temMulta477: comMulta477,
+    devolucaoAvisoDescontado,
     jaRecebido,
     temAviso,
     aviso,
@@ -695,18 +763,11 @@ function calcMultaFgts(
   };
 }
 
-function calcOpcionais(op: PedidosOpcionais | null | undefined, tabela2: Tabela2 | null): OpcionaisResult | null {
+function calcOpcionais(op: PedidosOpcionais | null | undefined): OpcionaisResult | null {
   if (!op) return null;
 
-  // A multa do 467 recai sobre as rescisórias em si, não sobre a multa do 477,
-  // e só sobre o que continua em aberto: o que a empresa já pagou não é verba
-  // incontroversa inadimplida.
-  const baseRescisorias = tabela2 ?
-  (tabela2.aviso?.diferenca ?? 0) +
-  (tabela2.decimoAviso?.diferenca ?? 0) +
-  (tabela2.feriasAviso?.diferenca ?? 0) :
-  0;
-  const multa467 = op.multa467 ? baseRescisorias * 0.5 : 0;
+  // A multa do art. 467 saiu: o escritório não a pede em nenhum modelo.
+  const multa467 = 0;
   const seguroDesemprego = Math.max(0, op.seguroDesemprego || 0);
   const outros = Math.max(0, op.outrosValor || 0);
   const total = multa467 + seguroDesemprego + outros;
@@ -821,14 +882,25 @@ export function calculate(input: CalcInput): CalcResult {
     (input.vinculo?.recebido.rescisorias ?? 0),
     ...(r?.outrosDescricao ? { outrosDescricao: r.outrosDescricao } : {}),
   };
+  // Aviso não cumprido e descontado da rescisão: anulado o pedido de demissão,
+  // o desconto perde o fundamento e volta (CLT 487, § 2º). Sem valor
+  // informado, vale um salário, que é o que a lei autoriza descontar.
+  const avisoNaSaida = input.avisoNaSaida ?? avisoPadrao(motivoSaida);
+  const devolucaoAviso =
+  avisoNaSaida === 'descontado' ?
+  Math.max(0, input.avisoDescontadoValor ?? input.salario) :
+  0;
+
   const tabela2 = calcTabela2(
     salarioBase,
     avisoDias,
     recebido,
-    temAvisoPrevio(motivoSaida, tipoRegistro),
+    temAvisoPrevio(),
     // Na doméstica o depósito é de 8%; os 3,2% da indenização compensatória
     // são da verba principal, não do aviso.
     0.08,
+    temMulta477(motivoSaida, tipoRegistro),
+    devolucaoAviso,
   );
 
   let multaFgts: MultaFgtsResult | null = null;
@@ -846,7 +918,7 @@ export function calculate(input: CalcInput): CalcResult {
     );
   }
 
-  const opcionais = calcOpcionais(input.opcionais, tabela2);
+  const opcionais = calcOpcionais(input.opcionais);
   const alertas = calcAlertas(input, vinculo, inicioContrato, dataReferencia, limitePrescricao);
 
   const tipoRescisao = MOTIVO_SAIDA_LABEL[motivoSaida];
@@ -883,6 +955,7 @@ export function calculate(input: CalcInput): CalcResult {
     tipoRegistro,
     salarioBase,
     rescisaoPresumidaPaga: presumeQuitado,
+    avisoNaSaida,
     ...(presumeQuitado ? { recebimentoPresumido: presumido } : {}),
     tipoRescisao,
   };

@@ -156,9 +156,6 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
 
   if (op) {
     rows.push(['', '', '', '', '', '', '']);
-    if (op.multa467 > 0) {
-      rows.push(['Adicionais', 'Multa art. 467', '50% sobre o aviso prévio e reflexos', '50% × rescisórias', op.multa467, 'R$', 'CLT 467']);
-    }
     if (op.seguroDesemprego > 0) {
       rows.push(['Adicionais', 'Seguro-desemprego', 'Indenização substitutiva das parcelas', 'Valor informado', op.seguroDesemprego, 'R$', 'Súm. 389, II, TST']);
     }

@@ -203,12 +203,14 @@ describe("prescrição", () => {
 });
 
 describe("pedidos opcionais", () => {
-  it("calcula a multa do 467 sobre o aviso e seus reflexos, sem a multa do 477", () => {
-    // Aviso de 36 dias: 2.400 + 200 + 266,67 = 2.866,67; metade = 1.433,33.
+  it("não calcula mais a multa do art. 467, nem quando pedida", () => {
+    // O escritório não pede o 467 em modelo nenhum: numa ação que discute a
+    // nulidade da dispensa a reclamada contesta tudo, e sem verba
+    // incontroversa a multa não se sustenta.
     const r = calculate(makeInput("dispensa_sem_justa_causa", {
       opcionais: { multa467: true, seguroDesemprego: 0, outrosValor: 0 },
     }));
-    expect(r.opcionais!.multa467).toBeCloseTo(1433.33, 2);
+    expect(r.opcionais).toBeNull();
   });
 
   it("soma seguro-desemprego e dano moral ao total", () => {

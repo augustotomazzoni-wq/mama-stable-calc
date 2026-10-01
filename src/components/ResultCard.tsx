@@ -132,7 +132,7 @@ ${input.admissao ? `- FGTS estimado do contrato: ${formatBRL(mf.fgtsPeriodoContr
   if (op) {
     resumo += `
 
-Pedidos adicionais:${op.multa467 > 0 ? `\n- Multa art. 467: ${formatBRL(op.multa467)}` : ""}${op.seguroDesemprego > 0 ? `\n- Seguro-desemprego: ${formatBRL(op.seguroDesemprego)}` : ""}${op.outros > 0 ? `\n- ${op.outrosDescricao || "Outros pedidos"}: ${formatBRL(op.outros)}` : ""}`;
+Pedidos adicionais:${op.seguroDesemprego > 0 ? `\n- Seguro-desemprego: ${formatBRL(op.seguroDesemprego)}` : ""}${op.outros > 0 ? `\n- ${op.outrosDescricao || "Outros pedidos"}: ${formatBRL(op.outros)}` : ""}`;
   }
 
   if (pedidos.length) {
@@ -575,15 +575,6 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
             <div className="rounded-lg overflow-hidden border">
               <table className="w-full text-sm">
                 <tbody>
-                  {op.multa467 > 0 &&
-                <tr className="border-t first:border-t-0">
-                      <td className="py-2.5 px-4">
-                        Multa do art. 467
-                        <span className="block text-xs text-muted-foreground mt-0.5">50% do aviso prévio e reflexos</span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-medium">{formatBRL(op.multa467)}</td>
-                    </tr>
-                }
                   {op.seguroDesemprego > 0 &&
                 <tr className="border-t first:border-t-0">
                       <td className="py-2.5 px-4">

@@ -467,13 +467,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
             {nOpcionais}. Pedidos Adicionais
           </h2>
-          {op.multa467 > 0 && t2 &&
-        <LinhaVerba
-          titulo="Multa do art. 467 da CLT"
-          valor={op.multa467}
-          formula={`50% × (${fmt(t2.avisoProvio)} + ${fmt(t2.decimoTerceiroAviso)} + ${fmt(t2.feriasComTercoAviso)}${t2.jaRecebido > 0 ? ` − ${fmt(t2.jaRecebido)}` : ""}) = ${fmt(op.multa467)}`} />
-
-        }
           {op.seguroDesemprego > 0 &&
         <LinhaVerba
           titulo="Seguro-desemprego"
