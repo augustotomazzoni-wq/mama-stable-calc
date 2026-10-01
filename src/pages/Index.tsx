@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { serializeInput, serializeResult, buildResumoJson } from "@/lib/calcSerializer";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import {
   UserMinus,
   DoorOpen,
   CalendarClock,
+  FileText,
   Users,
   FileCheck,
   FileClock,
@@ -59,7 +60,7 @@ import {
   TipoRegistro } from
 "@/lib/calculator";
 import { parseDateFromInput, toInputDate, addDays, formatBRL } from "@/lib/dateUtils";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSessao } from "@/hooks/useSessao";
 import { useRascunho } from "@/hooks/useRascunho";
 import { registrarAcesso } from "@/lib/db";
@@ -261,6 +262,7 @@ const CartaoOpcao = ({ ativo, titulo, descricao, Icone, onClick }: CartaoOpcaoPr
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   // A sessão e o papel são garantidos pelo RotaProtegida que envolve esta tela.
   const { usuario, ehAdmin } = useSessao();
 
