@@ -58,7 +58,7 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     ['Indenização', 'Salários do período', 'Salário mensal multiplicado pelos meses de estabilidade', `${fmt(sal)} × ${meses}`, t1.salarios, 'R$', ''],
     ['Indenização', '13º proporcional', 'Um doze avos do salário por mês de estabilidade', `(${fmt(sal)} / 12) × ${meses}`, t1.decimoTerceiro, 'R$', ''],
     ['Indenização', 'Férias + 1/3', 'Férias proporcionais aos meses de estabilidade, acrescidas de um terço', `((${fmt(sal)} / 12) × ${meses}) × 4/3`, t1.feriasComTerco, 'R$', ''],
-    ['Indenização', `FGTS (${aliquotaLabel})`, 'FGTS calculado sobre salários + 13º + férias', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel}`, t1.fgts, 'R$', input.empregadaDomestica ? 'Alíquota doméstica 11,2%' : 'Alíquota CLT 8%'],
+    ['Indenização', `FGTS (${aliquotaLabel})`, 'FGTS calculado sobre salários + 13º', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × ${aliquotaLabel}`, t1.fgts, 'R$', `${input.empregadaDomestica ? 'Alíquota doméstica 11,2%' : 'Alíquota CLT 8%'}. Férias indenizadas fora da base (Lei 8.036/90, art. 15, § 6º)`],
     ['Indenização', 'Subtotal Indenização', 'Soma das verbas de indenização + FGTS', 'Salários + 13º + Férias + FGTS', t1.total, 'R$', ''],
   ];
 
@@ -104,12 +104,17 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
   }
 
   if (t2) {
+    const temAviso = t2.temAviso ?? true;
+    rows.push(['', '', '', '', '', '', '']);
+    if (temAviso) {
+      rows.push(
+        ['Rescisórias', 'Aviso prévio', 'Aviso prévio proporcional ao tempo de serviço', `${t2.avisoDias ?? 30} dias × (${fmt(sal)} / 30)`, t2.avisoProvio, 'R$', 'Lei 12.506/2011 — devido na dispensa projetada para o fim da estabilidade'],
+        ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio', `${fmt(t2.avisoProvio)} / 12`, t2.decimoTerceiroAviso, 'R$', ''],
+        ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso prévio', `(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)}`, t2.feriasComTercoAviso, 'R$', ''],
+      );
+    }
     rows.push(
-      ['', '', '', '', '', '', ''],
-      ['Rescisórias', 'Aviso prévio', 'Aviso prévio proporcional ao tempo de serviço', `${t2.avisoDias ?? 30} dias × (${fmt(sal)} / 30)`, t2.avisoProvio, 'R$', 'Lei 12.506/2011 — devido na dispensa projetada para o fim da estabilidade'],
-      ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio', `${fmt(t2.avisoProvio)} / 12`, t2.decimoTerceiroAviso, 'R$', ''],
-      ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso prévio', `(${fmt(t2.decimoTerceiroAviso)} / 3) + ${fmt(t2.decimoTerceiroAviso)}`, t2.feriasComTercoAviso, 'R$', ''],
-      ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `${fmt(sal)}`, t2.multa477, 'R$', ''],
+      ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `${fmt(sal)}`, t2.multa477, 'R$', temAviso ? '' : 'Contrato a termo: sem aviso prévio, mas a multa é devida pelas verbas da estabilidade não pagas na saída'],
     );
     // Só entra quando houve abatimento. Antes a linha vinha sempre, com − 0,00,
     // e a planilha ficava com uma verba que o memorial não mostrava.

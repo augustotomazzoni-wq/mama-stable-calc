@@ -35,6 +35,9 @@ const ResultCard = ({ input, result, onReset, onBack, onOpenMemoria, onOpenConce
   const salarioBase = result.salarioBase ?? input.salario;
   const pisoAplicado = salarioBase > input.salario;
   const periodosEmDobro = (vin?.periodosFerias ?? []).filter((p) => p.dobro && !p.prescrito).length;
+  // Cálculos salvos antes do campo existir sempre tinham aviso quando a tabela 2
+  // existia; por isso o padrão é true.
+  const temAviso = t2 ? (t2.temAviso ?? true) : false;
   const aliquotaFgts = input.empregadaDomestica ? "11,2%" : "8%";
 
   let resumo = `Cliente: ${input.nome}
@@ -68,11 +71,12 @@ Subtotal do período sem registro: ${formatBRL(vin.total)}`;
   if (t2) {
     resumo += `
 
-Cálculo das verbas rescisórias:
+Cálculo das verbas rescisórias:${temAviso ? `
 - Aviso prévio: ${formatBRL(t2.avisoProvio)}
 - 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)}
-- Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)}
-- Multa art. 477: ${formatBRL(t2.multa477)}
+- Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)}` : ""}
+- Multa art. 477: ${formatBRL(t2.multa477)}${t2.jaRecebido > 0 ? `
+- Já recebido na saída: − ${formatBRL(t2.jaRecebido)}` : ""}
 Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
   }
 
@@ -361,25 +365,38 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Contrato a termo não tem aviso prévio: as três linhas
+                      somem em vez de aparecerem zeradas. */}
+                  {temAviso && (
+                    <>
+                      <tr className="border-t">
+                        <td className="py-2.5 px-4">
+                          Aviso prévio
+                          <span className="block text-xs text-muted-foreground mt-0.5">
+                            {t2.avisoDias ?? 30} dias (Lei 12.506/2011)
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
+                      </tr>
+                      <tr className="border-t">
+                        <td className="py-2.5 px-4">13º sobre aviso</td>
+                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.decimoTerceiroAviso)}</td>
+                      </tr>
+                      <tr className="border-t">
+                        <td className="py-2.5 px-4">Férias + 1/3 sobre aviso</td>
+                        <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.feriasComTercoAviso)}</td>
+                      </tr>
+                    </>
+                  )}
                   <tr className="border-t">
                     <td className="py-2.5 px-4">
-                      Aviso prévio
-                      <span className="block text-xs text-muted-foreground mt-0.5">
-                        {t2.avisoDias ?? 30} dias (Lei 12.506/2011)
-                      </span>
+                      Multa art. 477
+                      {!temAviso && (
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          Verbas da estabilidade que já deveriam ter sido pagas na saída
+                        </span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.avisoProvio)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">13º sobre aviso</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.decimoTerceiroAviso)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">Férias + 1/3 sobre aviso</td>
-                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.feriasComTercoAviso)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2.5 px-4">Multa art. 477</td>
                     <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t2.multa477)}</td>
                   </tr>
                   {t2.jaRecebido > 0 && (

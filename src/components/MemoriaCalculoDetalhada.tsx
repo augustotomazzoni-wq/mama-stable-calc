@@ -92,6 +92,10 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   // férias proporcionais são 3/4 do valor já acrescido de 1/3.
   const feriasProporcionais = (t1.feriasComTerco * 3) / 4;
   const tercoFerias = t1.feriasComTerco - feriasProporcionais;
+  // Base do FGTS: salários + 13º. Cálculos salvos antes do campo existir
+  // tinham as férias na base, então ali o fallback reproduz a conta antiga.
+  const baseFgts = t1.baseFgts ?? t1.salarios + t1.decimoTerceiro + t1.feriasComTerco;
+  const temAviso = t2 ? (t2.temAviso ?? true) : false;
 
   const fmt = (v: number) => formatBRL(v);
 
@@ -186,7 +190,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         <LinhaVerba
           titulo={`FGTS (${aliquotaLabel})`}
           valor={t1.fgts}
-          formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)} + ${fmt(t1.feriasComTerco)}) × ${aliquotaLabel} = ${fmt(t1.fgts)}`}
+          formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × ${aliquotaLabel} = ${fmt(t1.fgts)} — sem as férias indenizadas (Lei 8.036/90, art. 15, § 6º)`}
         />
 
         <SubtotalLinha titulo="Subtotal Indenização" valor={t1.total} />
@@ -282,25 +286,39 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             {nRescisorias}. Cálculo das Verbas Rescisórias
           </h2>
 
-          <LinhaVerba
-            titulo="Aviso prévio"
-            valor={t2.avisoProvio}
-            formula={`${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = ${fmt(t2.avisoProvio)} — Lei 12.506/2011`}
-          />
-          <LinhaVerba
-            titulo="13º sobre aviso"
-            valor={t2.decimoTerceiroAviso}
-            formula={`${fmt(t2.avisoProvio)} ÷ 12 = ${fmt(t2.decimoTerceiroAviso)}`}
-          />
-          <LinhaVerba
-            titulo="Férias + 1/3 sobre aviso"
-            valor={t2.feriasComTercoAviso}
-            formula={`(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
-          />
+          {temAviso ? (
+            <>
+              <LinhaVerba
+                titulo="Aviso prévio"
+                valor={t2.avisoProvio}
+                formula={`${t2.avisoDias ?? 30} dias × (${fmt(sal)} ÷ 30) = ${fmt(t2.avisoProvio)} — Lei 12.506/2011`}
+              />
+              <LinhaVerba
+                titulo="13º sobre aviso"
+                valor={t2.decimoTerceiroAviso}
+                formula={`${fmt(t2.avisoProvio)} ÷ 12 = ${fmt(t2.decimoTerceiroAviso)}`}
+              />
+              <LinhaVerba
+                titulo="Férias + 1/3 sobre aviso"
+                valor={t2.feriasComTercoAviso}
+                formula={`(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`}
+              />
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+              Sem aviso prévio: o contrato era por prazo determinado e nasce com data para
+              terminar, de modo que não há aviso a ser dado. A estabilidade garante os salários do
+              período e seus reflexos, apurados no item 2 (Súmula 244, III, do TST).
+            </p>
+          )}
           <LinhaVerba
             titulo="Multa art. 477"
             valor={t2.multa477}
-            formula={`${fmt(sal)} (1 salário)`}
+            formula={
+              temAviso ?
+              `${fmt(sal)} (1 salário)` :
+              `${fmt(sal)} (1 salário) — devida pelas verbas da estabilidade que já deveriam ter sido pagas na saída`
+            }
           />
 
           {t2.jaRecebido > 0 && (

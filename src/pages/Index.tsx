@@ -45,6 +45,7 @@ import {
   calcMesesAteParto,
   calculate,
   incluiFgtsDoContrato,
+  ehContratoDeExperiencia,
   CalcInput,
   CalcResult,
   ConcepcaoInfo,
@@ -133,9 +134,24 @@ const MOTIVOS_SAIDA: {
   },
   {
     valor: "fim_experiencia",
-    titulo: "Acabou a experiência",
-    descricao: "Estabilidade garantida mesmo no contrato a termo (Súmula 244, III, do TST).",
+    titulo: "Acabou a experiência no prazo",
+    descricao:
+      "Contrato a termo chegou ao fim. Sem aviso prévio, e os 40% do contrato entram: no término a empresa não paga essa multa (Súmula 244, III, do TST).",
     icone: CalendarClock,
+  },
+  {
+    valor: "dispensa_na_experiencia",
+    titulo: "Deram a conta na experiência",
+    descricao:
+      "Experiência rompida antes do prazo pela empresa. Sem aviso prévio, e os 40% do contrato ficam de fora: já foram pagos no TRCT.",
+    icone: UserMinus,
+  },
+  {
+    valor: "pedido_na_experiencia",
+    titulo: "Ela pediu a conta na experiência",
+    descricao:
+      "Experiência rompida antes do prazo por ela, nulo sem assistência sindical (CLT 500). Sem aviso prévio, e os 40% do contrato entram.",
+    icone: DoorOpen,
   },
 ];
 
@@ -200,6 +216,8 @@ const Index = () => {
   const [editarMesesManual, setEditarMesesManual] = useState(false);
   const [mesesManual, setMesesManual] = useState("");
   const [calcularMultaFgts, setCalcularMultaFgts] = useState(true);
+  const [fgtsContratoNaoPago, setFgtsContratoNaoPago] = useState(false);
+  const [recebidoNaSaida, setRecebidoNaSaida] = useState("");
 
   // Passo 3, só quando há período sem registro
   const [vinculoSalario, setVinculoSalario] = useState("");
@@ -313,15 +331,21 @@ const Index = () => {
   // Sem forma escrita e anotação não existe contrato de experiência válido: o
   // contrato é tratado como por prazo indeterminado.
   const motivosVisiveis = semRegistro ?
-  MOTIVOS_SAIDA.filter((m) => m.valor !== "fim_experiencia") :
+  MOTIVOS_SAIDA.filter((m) => !ehContratoDeExperiencia(m.valor)) :
   MOTIVOS_SAIDA;
 
   const escolherTipoRegistro = (novo: TipoRegistro) => {
     setTipoRegistro(novo);
-    if (novo === "sem_registro" && motivoSaida === "fim_experiencia") {
+    if (novo === "sem_registro" && ehContratoDeExperiencia(motivoSaida)) {
       setMotivoSaida("dispensa_sem_justa_causa");
     }
   };
+
+  // Só na dispensa — no pedido de demissão e no fim do termo ninguém pagou
+  // 40%, e o período trabalhado já entra na base por padrão.
+  const dispensaComFgtsPresumidoPago =
+  tipoRegistro !== "sem_registro" && (
+  motivoSaida === "dispensa_sem_justa_causa" || motivoSaida === "dispensa_na_experiencia");
 
   const salarioNumero = Number(salario) || 0;
   const pisoNumero = Number(piso) || 0;
@@ -359,7 +383,8 @@ const Index = () => {
   // Com carteira, a admissão só é indispensável quando o FGTS do contrato entra
   // na base da multa. Registrada depois, ela marca o fim do período sem registro.
   const admissaoObrigatoria = registradaDepois || (
-  tipoRegistro === "com_carteira" && calcularMultaFgts && incluiFgtsDoContrato(motivoSaida));
+  tipoRegistro === "com_carteira" && calcularMultaFgts &&
+  incluiFgtsDoContrato(motivoSaida, tipoRegistro, dispensaComFgtsPresumidoPago && fgtsContratoNaoPago));
 
   const erroOrdemDatas = (() => {
     if (registradaDepois && inicioDate && admissaoDate && inicioDate >= admissaoDate) {
@@ -453,6 +478,8 @@ const Index = () => {
       empregadaDomestica,
       admissao: semRegistro ? null : admissaoDate,
       calcularMultaFgts,
+      fgtsContratoNaoPago: dispensaComFgtsPresumidoPago ? fgtsContratoNaoPago : false,
+      recebidoNaSaida: tipoRegistro === "com_carteira" ? valorNumerico(recebidoNaSaida) : 0,
       vinculo,
       opcionais: {
         multa467,
@@ -550,14 +577,29 @@ const Index = () => {
     if (semRegistro) {
       return "Base: FGTS de todo o período trabalhado + estabilidade. Sem registro, nada foi pago na saída.";
     }
+    const incluiContrato = incluiFgtsDoContrato(
+      motivoSaida,
+      tipoRegistro,
+      dispensaComFgtsPresumidoPago && fgtsContratoNaoPago,
+    );
     if (registradaDepois) {
-      return incluiFgtsDoContrato(motivoSaida) ?
+      return incluiContrato ?
       "Base: FGTS do período sem registro + do contrato registrado + da estabilidade." :
       "Base: FGTS do período sem registro + da estabilidade. Os 40% do contrato registrado já foram pagos na rescisão.";
     }
+    if (!incluiContrato) {
+      return motivoSaida === "dispensa_na_experiencia" ?
+      "Base: apenas o FGTS do período de estabilidade — na rescisão antecipada da experiência a empresa paga os 40% no TRCT." :
+      "Base: apenas o FGTS do período de estabilidade — os 40% do contrato já foram pagos na rescisão.";
+    }
+    if (motivoSaida === "fim_experiencia") {
+      return admissaoObrigatoria && !admissao ?
+      "Base: FGTS da estabilidade + do contrato. No fim do termo a empresa não paga 40%, então o período trabalhado entra. Informe a data de admissão abaixo." :
+      "Base: FGTS da estabilidade + do contrato. No fim do termo a empresa não paga 40%, então o período trabalhado entra.";
+    }
     return admissaoObrigatoria ?
     "Base: FGTS do período de estabilidade + FGTS do contrato. Informe a data de admissão abaixo." :
-    "Base: apenas o FGTS do período de estabilidade — os 40% do contrato já foram pagos na rescisão.";
+    "Base: FGTS do período de estabilidade + FGTS do contrato.";
   })();
 
   const blocoPedidosAdicionais =
@@ -993,7 +1035,48 @@ const Index = () => {
                   <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
                 </div>
                 <p className="text-xs text-muted-foreground">{textoBaseMulta}</p>
+
+                {/* A dispensa presume os 40% pagos no TRCT. Quando não foram,
+                    o período trabalhado volta para a base. */}
+                {calcularMultaFgts && dispensaComFgtsPresumidoPago &&
+              <div className="flex items-start gap-2 border-t border-border/60 pt-3">
+                    <Checkbox
+                  id="fgtsNaoPago"
+                  checked={fgtsContratoNaoPago}
+                  onCheckedChange={(v) => setFgtsContratoNaoPago(v === true)}
+                  className="mt-0.5" />
+
+                    <Label htmlFor="fgtsNaoPago" className="text-xs font-normal cursor-pointer leading-relaxed">
+                      A empresa não pagou os 40% do FGTS na saída.
+                      <span className="block text-muted-foreground">
+                        Marque quando o TRCT não trouxe a multa. O FGTS do tempo trabalhado volta
+                        para a base.
+                      </span>
+                    </Label>
+                  </div>
+              }
               </div>
+
+              {/* O que ela recebeu na saída, no contrato com carteira. O
+                  período sem registro tem o campo próprio dele no passo 3. */}
+              {tipoRegistro === "com_carteira" &&
+            <div className="space-y-2">
+                  <Label htmlFor="recebidoNaSaida">O que ela recebeu na saída</Label>
+                  <Input
+                id="recebidoNaSaida"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={recebidoNaSaida}
+                onChange={(e) => setRecebidoNaSaida(e.target.value)} />
+
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. Abate das verbas rescisórias — na experiência rompida antes do prazo,
+                    é aqui que entra a indenização do art. 479 que ela já recebeu.
+                  </p>
+                </div>
+            }
 
               {/* Data de admissão, só com carteira desde o início */}
               {tipoRegistro === "com_carteira" &&

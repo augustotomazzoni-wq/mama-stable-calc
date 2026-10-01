@@ -14,8 +14,12 @@ import {
  * e 12 meses de estabilidade fixados na mão, para o cálculo não depender das
  * datas de gestação.
  *
- * FGTS da estabilidade = 8% × (24.000 + 2.000 + 2.666,67) = 2.293,33
- * FGTS do contrato     = 6 × 2.000 × 8%                   =   960,00
+ * FGTS da estabilidade = 8% × (24.000 + 2.000) = 2.080,00
+ *   As férias indenizadas ficam fora da base (Lei 8.036/90, art. 15, § 6º).
+ * FGTS do contrato     = 6 × 2.000 × 8%        =   960,00
+ *
+ * A multa do art. 477 (1 salário = 2.000) entra em todo motivo de saída: a
+ * ação cobra verbas da estabilidade que já deviam ter sido pagas.
  */
 function makeInput(motivoSaida: MotivoSaida, overrides: Partial<CalcInput> = {}): CalcInput {
   return {
@@ -63,7 +67,7 @@ function makeVinculo(
   };
 }
 
-const FGTS_ESTABILIDADE = 2293.3333;
+const FGTS_ESTABILIDADE = 2080;
 const FGTS_CONTRATO = 960;
 
 describe("multa de 40% do FGTS por motivo da saída", () => {
@@ -73,7 +77,7 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
     expect(r.multaFgts!.incluiPeriodoContrato).toBe(false);
     expect(r.multaFgts!.fgtsPeriodoContrato).toBe(0);
     expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE, 2);
-    expect(r.multaFgts!.multa40).toBeCloseTo(917.33, 2);
+    expect(r.multaFgts!.multa40).toBeCloseTo(832, 2);
   });
 
   it("mostra os meses de contrato mesmo quando eles ficam fora da base", () => {
@@ -87,15 +91,42 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
     expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
     expect(r.multaFgts!.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
     expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
-    expect(r.multaFgts!.multa40).toBeCloseTo(1301.33, 2);
+    expect(r.multaFgts!.multa40).toBeCloseTo(1216, 2);
   });
 
-  it("no término de experiência, alcança os dois períodos como no pedido de demissão", () => {
+  it("no término de experiência no prazo, alcança os dois períodos", () => {
     const experiencia = calculate(makeInput("fim_experiencia"));
     const pedido = calculate(makeInput("pedido_demissao"));
 
+    // No fim do termo a empresa não paga 40%, então o período trabalhado entra
+    // na base — igual ao pedido de demissão.
     expect(experiencia.multaFgts!.multa40).toBeCloseTo(pedido.multaFgts!.multa40, 2);
-    expect(experiencia.totalFinal).toBeCloseTo(pedido.totalFinal, 2);
+    // Mas o total é menor: contrato a termo não tem aviso prévio.
+    expect(experiencia.totalFinal).toBeLessThan(pedido.totalFinal);
+  });
+
+  it("na dispensa durante a experiência, o período trabalhado fica fora da base", () => {
+    const r = calculate(makeInput("dispensa_na_experiencia"));
+
+    // A empresa paga os 40% no TRCT da rescisão antecipada.
+    expect(r.multaFgts!.incluiPeriodoContrato).toBe(false);
+    expect(r.multaFgts!.fgtsPeriodoContrato).toBe(0);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE, 2);
+  });
+
+  it("volta o período trabalhado para a base quando a empresa não pagou os 40%", () => {
+    const r = calculate(makeInput("dispensa_na_experiencia", { fgtsContratoNaoPago: true }));
+
+    expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
+  });
+
+  it("no pedido de demissão durante a experiência, o período trabalhado entra", () => {
+    const r = calculate(makeInput("pedido_na_experiencia"));
+
+    // Ela pediu para sair: ninguém pagou 40% nenhum.
+    expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
   });
 
   it("não calcula multa quando o cálculo está desativado", () => {
@@ -105,9 +136,15 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
 });
 
 describe("verbas rescisórias por motivo da saída", () => {
-  it("não repete as verbas já pagas na dispensa sem justa causa", () => {
+  it("não repete o aviso já pago na dispensa sem justa causa, mas cobra a multa do 477", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa"));
-    expect(r.tabela2).toBeNull();
+
+    expect(r.tabela2!.temAviso).toBe(false);
+    expect(r.tabela2!.avisoProvio).toBe(0);
+    expect(r.tabela2!.decimoTerceiroAviso).toBe(0);
+    expect(r.tabela2!.feriasComTercoAviso).toBe(0);
+    expect(r.tabela2!.multa477).toBe(2000);
+    expect(r.tabela2!.total).toBe(2000);
   });
 
   it("inclui aviso, 13º, férias e multa do art. 477 no pedido de demissão", () => {
@@ -120,9 +157,31 @@ describe("verbas rescisórias por motivo da saída", () => {
     expect(r.tabela2!.multa477).toBe(2000);
   });
 
-  it("inclui as mesmas verbas no término de experiência", () => {
-    const r = calculate(makeInput("fim_experiencia"));
-    expect(r.tabela2).not.toBeNull();
+  it("não tem aviso prévio em nenhuma hipótese de experiência, só a multa do 477", () => {
+    for (const motivo of ["fim_experiencia", "dispensa_na_experiencia", "pedido_na_experiencia"] as const) {
+      const r = calculate(makeInput(motivo));
+      expect(r.tabela2!.temAviso).toBe(false);
+      expect(r.tabela2!.avisoProvio).toBe(0);
+      expect(r.tabela2!.multa477).toBe(2000);
+    }
+  });
+
+  it("abate das rescisórias o que ela recebeu na saída, no contrato com carteira", () => {
+    const r = calculate(makeInput("dispensa_na_experiencia", { recebidoNaSaida: 500 }));
+
+    expect(r.tabela2!.jaRecebido).toBe(500);
+    expect(r.tabela2!.total).toBe(1500);
+  });
+});
+
+describe("base do FGTS da indenização", () => {
+  it("incide sobre salários e 13º, sem as férias indenizadas", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa"));
+
+    expect(r.tabela1.baseFgts).toBeCloseTo(26000, 2);
+    expect(r.tabela1.fgts).toBeCloseTo(FGTS_ESTABILIDADE, 2);
+    // As férias continuam devidas como verba, só não entram na base do FGTS.
+    expect(r.tabela1.feriasComTerco).toBeCloseTo(2666.67, 2);
   });
 });
 
@@ -139,9 +198,11 @@ describe("rótulos e total", () => {
     expect(r.totalFinal).toBeCloseTo(esperado, 2);
   });
 
-  it("na dispensa, o total é a indenização somada apenas à multa", () => {
+  it("na dispensa, o total é a indenização, a multa do 477 e a multa de 40%", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa"));
-    expect(r.totalFinal).toBeCloseTo(r.tabela1.total + r.multaFgts!.multa40, 2);
+    expect(r.totalFinal).toBeCloseTo(
+      r.tabela1.total + r.tabela2!.total + r.multaFgts!.multa40, 2,
+    );
   });
 });
 
@@ -221,7 +282,9 @@ describe("período trabalhado sem registro", () => {
 
   it("soma o subtotal do vínculo ao total final", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa", { vinculo: makeVinculo() }));
-    expect(r.totalFinal).toBeCloseTo(r.tabela1.total + r.vinculo!.total + r.multaFgts!.multa40, 2);
+    expect(r.totalFinal).toBeCloseTo(
+      r.tabela1.total + r.vinculo!.total + r.tabela2!.total + r.multaFgts!.multa40, 2,
+    );
   });
 
   it("leva o FGTS do período sem registro para a base da multa, mesmo na dispensa", () => {

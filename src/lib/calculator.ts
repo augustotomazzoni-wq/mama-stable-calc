@@ -32,13 +32,34 @@ export interface ConcepcaoInfo {
  *
  * O que muda entre eles é apenas o que a empregada JÁ recebeu na saída.
  */
-export type MotivoSaida = 'pedido_demissao' | 'dispensa_sem_justa_causa' | 'fim_experiencia';
+export type MotivoSaida =
+  | 'pedido_demissao'
+  | 'dispensa_sem_justa_causa'
+  | 'fim_experiencia'
+  | 'dispensa_na_experiencia'
+  | 'pedido_na_experiencia';
 
 export const MOTIVO_SAIDA_LABEL: Record<MotivoSaida, string> = {
   pedido_demissao: 'Pedido de demissão',
   dispensa_sem_justa_causa: 'Dispensa sem justa causa',
   fim_experiencia: 'Término do contrato de experiência',
+  dispensa_na_experiencia: 'Dispensa durante o contrato de experiência',
+  pedido_na_experiencia: 'Pedido de demissão durante o contrato de experiência',
 };
+
+/**
+ * Contrato por prazo determinado. Aqui não existe aviso prévio: o contrato
+ * nasce com data para acabar, e é essa data que encerra o vínculo. Reconhecida
+ * a estabilidade (Súmula 244, III, do TST), o que se indeniza são os salários
+ * do período de estabilidade e seus reflexos — não o aviso.
+ */
+export function ehContratoDeExperiencia(motivo: MotivoSaida): boolean {
+  return (
+    motivo === 'fim_experiencia' ||
+    motivo === 'dispensa_na_experiencia' ||
+    motivo === 'pedido_na_experiencia'
+  );
+}
 
 /**
  * Como era o registro do contrato. Define o que se presume pago na saída:
@@ -154,6 +175,17 @@ export interface CalcInput {
   empregadaDomestica: boolean;
   admissao: Date | null;
   calcularMultaFgts: boolean;
+  /**
+   * A empresa devia ter pago os 40% do FGTS na saída e não pagou. Traz o
+   * período trabalhado de volta para a base da multa.
+   */
+  fgtsContratoNaoPago?: boolean;
+  /**
+   * O que ela recebeu na saída, no contrato com carteira — a indenização do
+   * art. 479 na experiência rompida antes do prazo, por exemplo. Abate das
+   * verbas rescisórias. O período sem registro tem o campo próprio dele.
+   */
+  recebidoNaSaida?: number;
   vinculo?: VinculoInput | null;
   opcionais?: PedidosOpcionais | null;
   /** Data que faz as vezes do ajuizamento na contagem da prescrição. */
@@ -165,6 +197,8 @@ export interface Tabela1 {
   salarios: number;
   decimoTerceiro: number;
   feriasComTerco: number;
+  /** Salários + 13º: as férias indenizadas ficam fora da base do FGTS. */
+  baseFgts?: number;
   fgts: number;
   total: number;
 }
@@ -178,6 +212,8 @@ export interface Tabela2 {
   multa477: number;
   /** Aviso e demais rescisórias já pagas, abatidas do subtotal. */
   jaRecebido: number;
+  /** false quando o contrato era a termo ou o aviso já foi pago na saída. */
+  temAviso?: boolean;
   total: number;
 }
 
@@ -227,24 +263,49 @@ export function resolveTipoRegistro(input: Pick<CalcInput, 'tipoRegistro' | 'vin
 }
 
 /**
- * Aviso prévio, 13º e férias sobre o aviso e multa do art. 477 só entram quando
- * a empregada não os recebeu na saída. Com carteira, a dispensa sem justa causa
- * presume a rescisão paga; sem registro, nada foi pago em motivo nenhum.
+ * Aviso prévio e seus reflexos (13º e férias sobre o aviso).
+ *
+ * Não entram em duas situações:
+ *
+ * - Dispensa sem justa causa com carteira em contrato por prazo indeterminado:
+ *   o aviso foi pago na rescisão, e cobrá-lo de novo seria pedir em dobro.
+ * - Qualquer hipótese de contrato de experiência: em contrato a termo não há
+ *   aviso prévio. O que a estabilidade garante são os salários do período e
+ *   seus reflexos, não a conversão do contrato para todos os efeitos.
+ *
+ * Sem registro não existe contrato de experiência válido — faltam forma
+ * escrita e anotação —, então o contrato é tratado como indeterminado.
  */
-export function temVerbasRescisorias(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+export function temAvisoPrevio(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
   if (tipoRegistro === 'sem_registro') return true;
+  if (ehContratoDeExperiencia(motivo)) return false;
   return motivo !== 'dispensa_sem_justa_causa';
 }
 
 /**
- * Na dispensa sem justa causa com carteira, a multa de 40% sobre o FGTS do
- * contrato registrado já foi paga na rescisão; resta apenas a multa sobre o
- * FGTS do período de estabilidade. No pedido de demissão, no término de
- * experiência e sem registro, nada de 40% foi pago.
+ * Multa de 40% sobre o FGTS do tempo efetivamente trabalhado, antes da
+ * estabilidade. A pergunta é sempre a mesma: a empresa já pagou essa multa na
+ * saída? Se pagou, ela não entra no pedido; o que se cobra são os 40% sobre o
+ * FGTS do período de estabilidade.
+ *
+ * - Dispensa sem justa causa, em contrato indeterminado ou durante a
+ *   experiência: a empresa paga os 40% no TRCT. Fica de fora.
+ * - Término do contrato no prazo: no fim do termo a empresa não deve 40%
+ *   nenhum, então o período trabalhado entra na base.
+ * - Pedido de demissão, em qualquer contrato: ninguém pagou 40%. Entra.
+ * - Sem registro: nada foi depositado nem pago. Entra.
+ *
+ * `naoPagouNaSaida` cobre o caso em que a empresa devia ter pago e não pagou —
+ * aí o período volta para a base mesmo na dispensa.
  */
-export function incluiFgtsDoContrato(motivo: MotivoSaida, tipoRegistro: TipoRegistro = 'com_carteira'): boolean {
+export function incluiFgtsDoContrato(
+  motivo: MotivoSaida,
+  tipoRegistro: TipoRegistro = 'com_carteira',
+  naoPagouNaSaida = false,
+): boolean {
   if (tipoRegistro === 'sem_registro') return true;
-  return motivo !== 'dispensa_sem_justa_causa';
+  if (naoPagouNaSaida) return true;
+  return motivo !== 'dispensa_sem_justa_causa' && motivo !== 'dispensa_na_experiencia';
 }
 
 export function calcPrevisaoParto(concepcao: Date): Date {
@@ -268,9 +329,17 @@ function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean
   const feriasComTerco = feriasProporcionais + feriasProporcionais / 3;
   const subtotalVerbas = salarios + decimoTerceiro + feriasComTerco;
   const aliquota = empregadaDomestica ? 0.112 : 0.08;
-  const fgts = subtotalVerbas * aliquota;
+  // O FGTS incide sobre salários e 13º, não sobre as férias.
+  //
+  // Na projeção da estabilidade nada é trabalhado: as férias são indenizadas,
+  // e sobre férias indenizadas e o terço não há FGTS (Lei 8.036/90, art. 15,
+  // § 6º, que remete ao art. 28, § 9º, da Lei 8.212/91). Antes a base incluía
+  // as férias, o que inflava a verba e, por tabela, a multa de 40% que incide
+  // sobre ela.
+  const baseFgts = salarios + decimoTerceiro;
+  const fgts = baseFgts * aliquota;
   const total = subtotalVerbas + fgts;
-  return { salarios, decimoTerceiro, feriasComTerco, fgts, total };
+  return { salarios, decimoTerceiro, feriasComTerco, baseFgts, fgts, total };
 }
 
 /**
@@ -283,19 +352,35 @@ export function calcAvisoDias(inicioContrato: Date | null, fimContrato: Date): n
   return Math.min(30 + 3 * anosCompletosEntre(inicioContrato, fimContrato), 90);
 }
 
-function calcTabela2(salario: number, avisoDias: number, jaRecebido: number): Tabela2 {
-  const avisoProvio = salario * (avisoDias / 30);
-  const decimoTerceiroAviso = avisoProvio / 12;
-  const feriasComTercoAviso = (decimoTerceiroAviso / 3) + decimoTerceiroAviso;
+/**
+ * Verbas rescisórias da dispensa projetada para o fim da estabilidade.
+ *
+ * A multa do art. 477 entra sempre, com ou sem aviso prévio: a ação cobra
+ * verbas da estabilidade que já deveriam ter sido pagas na saída e não foram,
+ * e é exatamente esse atraso que a multa sanciona. Ela não é reflexo do aviso.
+ *
+ * Quando `temAviso` é falso — contrato a termo, ou aviso já pago na rescisão —
+ * o aviso e seus reflexos ficam zerados e sobra só a multa.
+ */
+function calcTabela2(
+  salario: number,
+  avisoDias: number,
+  jaRecebido: number,
+  temAviso: boolean,
+): Tabela2 {
+  const avisoProvio = temAviso ? salario * (avisoDias / 30) : 0;
+  const decimoTerceiroAviso = temAviso ? avisoProvio / 12 : 0;
+  const feriasComTercoAviso = temAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
   const multa477 = salario;
   const bruto = avisoProvio + decimoTerceiroAviso + feriasComTercoAviso + multa477;
   return {
-    avisoDias,
+    avisoDias: temAviso ? avisoDias : 0,
     avisoProvio,
     decimoTerceiroAviso,
     feriasComTercoAviso,
     multa477,
     jaRecebido,
+    temAviso,
     total: Math.max(0, bruto - jaRecebido),
   };
 }
@@ -388,7 +473,11 @@ function calcMultaFgts(
   salarioBase: number,
 ): MultaFgtsResult {
   const aliquota = input.empregadaDomestica ? 0.112 : 0.08;
-  const incluiPeriodoContrato = incluiFgtsDoContrato(motivo, tipoRegistro);
+  const incluiPeriodoContrato = incluiFgtsDoContrato(
+    motivo,
+    tipoRegistro,
+    input.fgtsContratoNaoPago ?? false,
+  );
   let mesesTrabalhados = 0;
   let fgtsPeriodoContrato = 0;
 
@@ -506,9 +595,17 @@ export function calculate(input: CalcInput): CalcResult {
   sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const avisoDias = calcAvisoDias(inicioContrato, fimEstabilidade);
 
-  const tabela2 = temVerbasRescisorias(motivoSaida, tipoRegistro) ?
-  calcTabela2(salarioBase, avisoDias, input.vinculo?.recebido.rescisorias ?? 0) :
-  null;
+  // A tabela 2 existe sempre: mesmo sem aviso prévio, a multa do art. 477 é
+  // devida. O que ela recebeu na saída abate dos dois lados — o informado no
+  // contrato com carteira e o informado no módulo do período sem registro.
+  const recebidoNaSaida =
+  Math.max(0, input.recebidoNaSaida ?? 0) + (input.vinculo?.recebido.rescisorias ?? 0);
+  const tabela2 = calcTabela2(
+    salarioBase,
+    avisoDias,
+    recebidoNaSaida,
+    temAvisoPrevio(motivoSaida, tipoRegistro),
+  );
 
   let multaFgts: MultaFgtsResult | null = null;
   if (input.calcularMultaFgts) {
