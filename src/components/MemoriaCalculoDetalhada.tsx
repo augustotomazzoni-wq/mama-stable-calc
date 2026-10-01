@@ -301,27 +301,8 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             {nRescisorias}. Cálculo das Verbas Rescisórias
           </h2>
 
-          {result.rescisaoPresumidaPaga && result.recebimentoPresumido &&
-          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-              Dispensa sem justa causa: presume-se que o TRCT da saída pagou as verbas
-              rescisórias de então
-              {result.recebimentoPresumido.avisoDias > 0 ?
-              ` — aviso prévio de ${result.recebimentoPresumido.avisoDias} dias sobre o salário de ${fmt(input.salario)}, com os reflexos e o FGTS correspondentes` :
-              ""}
-              , mais a multa de 40% sobre o FGTS dos {result.recebimentoPresumido.mesesTrabalhados}{" "}
-              meses trabalhados. Esses valores entram abatidos abaixo. A multa do art. 477 não se
-              presume paga: ela decorre das verbas da estabilidade que ficaram em aberto.
-            </p>
-          }
-
-          {temAviso ? (
+          {temAviso && (
             <>
-              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                Reconhecida a nulidade, o contrato se projeta até o fim da estabilidade, e é nesse
-                momento que ocorre a dispensa. O aviso devido é o daquela data — mais tempo de
-                casa, mais dias (Lei 12.506/2011) — e o que a empresa pagou na saída abate verba a
-                verba. O que sobra é a diferença que se pede.
-              </p>
               <LinhaVerba
                 titulo="Aviso prévio"
                 valor={t2.aviso?.diferenca ?? t2.avisoProvio}
@@ -361,12 +342,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
                 />
               )}
             </>
-          ) : (
-            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-              Sem aviso prévio: o contrato era por prazo determinado e nasce com data para
-              terminar, de modo que não há aviso a ser dado. A estabilidade garante os salários do
-              período e seus reflexos, apurados no item 2 (Súmula 244, III, do TST).
-            </p>
           )}
           <LinhaVerba
             titulo="Multa art. 477"
@@ -451,13 +426,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             valor={mf.multa40}
           />
 
-          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-            {semRegistro ?
-            "Reconhecido o vínculo e a nulidade da saída, o contrato se projeta até o fim da estabilidade, quando ocorre a dispensa sem justa causa. Como o FGTS nunca foi depositado e nenhuma multa foi paga, a base alcança o FGTS de todo o período trabalhado somado ao do período de estabilidade." :
-            mf.incluiPeriodoContrato === false ?
-            "Reconhecida a nulidade da dispensa, o contrato se projeta até o fim da estabilidade, quando ocorre a dispensa sem justa causa. A multa de 40% sobre o FGTS do período trabalhado já foi quitada na rescisão, de modo que aqui se apura apenas a incidente sobre o FGTS do período de estabilidade." :
-            "Reconhecida a nulidade do ato, o contrato se projeta até o fim da estabilidade, quando ocorre a dispensa sem justa causa. Como nenhuma multa de 40% foi paga à época da saída, a base alcança o FGTS de todo o contrato somado ao do período de estabilidade."}
-          </p>
         </section>
       )}
 
