@@ -187,11 +187,26 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
           valor={t1.feriasComTerco}
           formula={`(${fmt(sal)} ÷ 12) × ${meses} = ${fmt(feriasProporcionais)} + 1/3 (${fmt(tercoFerias)}) = ${fmt(t1.feriasComTerco)}`}
         />
-        <LinhaVerba
-          titulo={`FGTS (${aliquotaLabel})`}
-          valor={t1.fgts}
-          formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × ${aliquotaLabel} = ${fmt(t1.fgts)} — sem as férias indenizadas (Lei 8.036/90, art. 15, § 6º)`}
-        />
+        {input.empregadaDomestica ? (
+          <>
+            <LinhaVerba
+              titulo="FGTS (8%)"
+              valor={t1.fgtsDeposito ?? 0}
+              formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × 8% = ${fmt(t1.fgtsDeposito ?? 0)} — sem as férias indenizadas (Lei 8.036/90, art. 15, § 6º)`}
+            />
+            <LinhaVerba
+              titulo="Indenização compensatória (3,2%)"
+              valor={t1.indenizacaoCompensatoria ?? 0}
+              formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × 3,2% = ${fmt(t1.indenizacaoCompensatoria ?? 0)} — LC 150/2015, art. 22. Substitui a multa de 40%, que no contrato doméstico não existe.`}
+            />
+          </>
+        ) : (
+          <LinhaVerba
+            titulo={`FGTS (${aliquotaLabel})`}
+            valor={t1.fgts}
+            formula={`(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × ${aliquotaLabel} = ${fmt(t1.fgts)} — sem as férias indenizadas (Lei 8.036/90, art. 15, § 6º)`}
+          />
+        )}
 
         <SubtotalLinha titulo="Subtotal Indenização" valor={t1.total} />
       </section>
@@ -321,6 +336,17 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
                   `(${fmt(t2.decimoTerceiroAviso)} ÷ 3) + ${fmt(t2.decimoTerceiroAviso)} = ${fmt(t2.feriasComTercoAviso)}`
                 }
               />
+              {(t2.fgtsSobreAviso ?? 0) > 0 && (
+                <LinhaVerba
+                  titulo="FGTS sobre o aviso"
+                  valor={t2.fgtsAviso?.diferenca ?? t2.fgtsSobreAviso ?? 0}
+                  formula={
+                    t2.fgtsAviso && t2.fgtsAviso.recebido > 0 ?
+                    `devido ${fmt(t2.fgtsSobreAviso ?? 0)} − pago ${fmt(t2.fgtsAviso.recebido)} = ${fmt(t2.fgtsAviso.diferenca)}` :
+                    `(${fmt(t2.avisoProvio)} + ${fmt(t2.decimoTerceiroAviso)}) × 8% = ${fmt(t2.fgtsSobreAviso ?? 0)} — o aviso indenizado integra o tempo de serviço (CLT 487, § 1º; Súmula 305 do TST)`
+                  }
+                />
+              )}
             </>
           ) : (
             <p className="text-xs text-muted-foreground mb-4 leading-relaxed">

@@ -154,7 +154,11 @@ export function periodosDeFerias(
 
     const fimConcessivo = completo ? addDays(addMonthsExcelLike(inicio, 12 * (k + 2)), -1) : null;
     const dobro = fimConcessivo !== null && fimConcessivo < fim;
-    const prescrito = dobro && limitePrescricao !== null && fimConcessivo! < limitePrescricao;
+    // A prescrição das férias corre do fim do prazo de concessão (CLT 149),
+    // haja dobra ou não. Antes a condição exigia a dobra, o que deixava de
+    // fora um período concessivo vencido que ainda não tivesse dobrado.
+    const prescrito =
+    fimConcessivo !== null && limitePrescricao !== null && fimConcessivo < limitePrescricao;
 
     periodos.push({
       inicio: aqInicio,

@@ -1,4 +1,4 @@
-import { addDays, addMonthsExcelLike, ceilMonthsBetween, anosCompletosEntre, formatDateBR } from './dateUtils';
+import { addDays, addMonthsExcelLike, anosCompletosEntre, formatDateBR } from './dateUtils';
 import {
   mesesTrabalhados,
   mesesDeServico,
@@ -153,7 +153,7 @@ export interface OpcionaisResult {
 }
 
 export interface AlertaCalculo {
-  tipo: 'prescricao_bienal' | 'prescricao_quinquenal';
+  tipo: 'prescricao_bienal' | 'prescricao_quinquenal' | 'sem_estabilidade';
   mensagem: string;
 }
 
@@ -197,8 +197,28 @@ export interface Tabela1 {
   feriasComTerco: number;
   /** Salários + 13º: as férias indenizadas ficam fora da base do FGTS. */
   baseFgts?: number;
+  /** Depósito de 8%. Na doméstica é só esta parte que é FGTS. */
+  fgtsDeposito?: number;
+  /**
+   * Doméstica: os 3,2% do art. 22 da LC 150/2015, que substituem a multa de
+   * 40%. Zero nos demais contratos.
+   */
+  indenizacaoCompensatoria?: number;
+  /** Depósito mais a indenização compensatória, quando houver. */
   fgts: number;
   total: number;
+}
+
+/**
+ * A multa de 40% não existe no contrato doméstico.
+ *
+ * Os 11,2% da LC 150/2015 são 8% de FGTS (art. 21) mais 3,2% de indenização
+ * compensatória da perda do emprego (art. 22) — e é essa indenização que faz
+ * as vezes da multa. Aplicar os 40% sobre os 11,2%, como se fazia antes,
+ * cobrava duas vezes a mesma coisa.
+ */
+export function temMultaDe40(empregadaDomestica: boolean): boolean {
+  return !empregadaDomestica;
 }
 
 /**
@@ -210,6 +230,8 @@ export interface RescisaoRecebida {
   avisoPrevio: number;
   decimoTerceiroAviso: number;
   feriasAviso: number;
+  /** FGTS depositado sobre o aviso prévio e o 13º dele. */
+  fgtsAviso: number;
   multa477: number;
   outros: number;
   outrosDescricao?: string;
@@ -219,6 +241,7 @@ export const RESCISAO_RECEBIDA_VAZIA: RescisaoRecebida = {
   avisoPrevio: 0,
   decimoTerceiroAviso: 0,
   feriasAviso: 0,
+  fgtsAviso: 0,
   multa477: 0,
   outros: 0,
 };
@@ -230,6 +253,8 @@ export interface Tabela2 {
   avisoProvio: number;
   decimoTerceiroAviso: number;
   feriasComTercoAviso: number;
+  /** FGTS sobre o aviso e o 13º dele (Súmula 305 do TST). */
+  fgtsSobreAviso?: number;
   multa477: number;
   /** Aviso e demais rescisórias já pagas, abatidas do subtotal. */
   jaRecebido: number;
@@ -239,6 +264,7 @@ export interface Tabela2 {
   aviso?: VinculoVerba;
   decimoAviso?: VinculoVerba;
   feriasAviso?: VinculoVerba;
+  fgtsAviso?: VinculoVerba;
   multa477Verba?: VinculoVerba;
   outrosRecebidos?: number;
   outrosDescricao?: string;
@@ -340,9 +366,18 @@ export function calcPrevisaoParto(concepcao: Date): Date {
   return addDays(concepcao, 266);
 }
 
+/**
+ * Meses da saída até o parto, pela mesma régua do resto do sistema: a fração
+ * de mês só conta como mês inteiro quando passa de 14 dias (CLT 146,
+ * parágrafo único).
+ *
+ * Antes isto usava um arredondamento que transformava um único dia num mês
+ * cheio de salário, enquanto o módulo do período sem registro aplicava a regra
+ * dos 14 dias. O mesmo período valia coisas diferentes conforme a tela.
+ */
 export function calcMesesAteParto(demissao: Date, parto: Date): number {
   if (demissao >= parto) return 0;
-  return ceilMonthsBetween(demissao, parto);
+  return mesesDeServico(demissao, parto);
 }
 
 export function calcMesesEstabilidade(demissao: Date, parto: Date): number {
@@ -356,7 +391,6 @@ function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean
   const feriasProporcionais = (salario / 12) * meses;
   const feriasComTerco = feriasProporcionais + feriasProporcionais / 3;
   const subtotalVerbas = salarios + decimoTerceiro + feriasComTerco;
-  const aliquota = empregadaDomestica ? 0.112 : 0.08;
   // O FGTS incide sobre salários e 13º, não sobre as férias.
   //
   // Na projeção da estabilidade nada é trabalhado: as férias são indenizadas,
@@ -365,9 +399,22 @@ function calcTabela1(salario: number, meses: number, empregadaDomestica: boolean
   // as férias, o que inflava a verba e, por tabela, a multa de 40% que incide
   // sobre ela.
   const baseFgts = salarios + decimoTerceiro;
-  const fgts = baseFgts * aliquota;
+  const fgtsDeposito = baseFgts * 0.08;
+  // Doméstica: 3,2% de indenização compensatória (LC 150/2015, art. 22), que
+  // entram aqui porque fazem as vezes da multa de 40%.
+  const indenizacaoCompensatoria = empregadaDomestica ? baseFgts * 0.032 : 0;
+  const fgts = fgtsDeposito + indenizacaoCompensatoria;
   const total = subtotalVerbas + fgts;
-  return { salarios, decimoTerceiro, feriasComTerco, baseFgts, fgts, total };
+  return {
+    salarios,
+    decimoTerceiro,
+    feriasComTerco,
+    baseFgts,
+    fgtsDeposito,
+    indenizacaoCompensatoria,
+    fgts,
+    total,
+  };
 }
 
 /**
@@ -395,10 +442,15 @@ function calcTabela2(
   avisoDias: number,
   recebido: RescisaoRecebida,
   temAviso: boolean,
+  aliquotaFgts: number,
 ): Tabela2 {
   const avisoProvio = temAviso ? salario * (avisoDias / 30) : 0;
   const decimoTerceiroAviso = temAviso ? avisoProvio / 12 : 0;
   const feriasComTercoAviso = temAviso ? decimoTerceiroAviso / 3 + decimoTerceiroAviso : 0;
+  // O aviso prévio indenizado integra o tempo de serviço (CLT 487, § 1º) e
+  // sobre ele incide FGTS — Súmula 305 do TST. Vale também para o 13º do
+  // aviso; as férias ficam de fora por serem indenizadas.
+  const fgtsSobreAviso = (avisoProvio + decimoTerceiroAviso) * aliquotaFgts;
   const multa477 = salario;
 
   // Cada verba abate da sua. O pago a mais numa não cobre o devido de outra —
@@ -406,25 +458,29 @@ function calcTabela2(
   const aviso = montaVerba(avisoProvio, temAviso ? recebido.avisoPrevio : 0);
   const decimoAviso = montaVerba(decimoTerceiroAviso, temAviso ? recebido.decimoTerceiroAviso : 0);
   const feriasAviso = montaVerba(feriasComTercoAviso, temAviso ? recebido.feriasAviso : 0);
+  const fgtsAviso = montaVerba(fgtsSobreAviso, temAviso ? recebido.fgtsAviso : 0);
   const multa477Verba = montaVerba(multa477, recebido.multa477);
 
   const somaDiferencas =
-  aviso.diferenca + decimoAviso.diferenca + feriasAviso.diferenca + multa477Verba.diferenca;
+  aviso.diferenca + decimoAviso.diferenca + feriasAviso.diferenca +
+  fgtsAviso.diferenca + multa477Verba.diferenca;
   const jaRecebido =
   aviso.recebido + decimoAviso.recebido + feriasAviso.recebido +
-  multa477Verba.recebido + recebido.outros;
+  fgtsAviso.recebido + multa477Verba.recebido + recebido.outros;
 
   return {
     avisoDias: temAviso ? avisoDias : 0,
     avisoProvio,
     decimoTerceiroAviso,
     feriasComTercoAviso,
+    fgtsSobreAviso,
     multa477,
     jaRecebido,
     temAviso,
     aviso,
     decimoAviso,
     feriasAviso,
+    fgtsAviso,
     multa477Verba,
     outrosRecebidos: recebido.outros,
     outrosDescricao: recebido.outrosDescricao,
@@ -524,7 +580,8 @@ function calcMultaFgts(
   let fgtsPeriodoContrato = 0;
 
   if (input.admissao) {
-    mesesTrabalhados = ceilMonthsBetween(input.admissao, input.demissao);
+    // Mesma régua dos 14 dias usada na estabilidade e no período sem registro.
+    mesesTrabalhados = mesesDeServico(input.admissao, input.demissao);
     // Sobre o salário base — o piso, quando ele supera o que foi pago, como
     // em todas as outras verbas.
     fgtsPeriodoContrato = mesesTrabalhados * salarioBase * aliquota;
@@ -577,6 +634,20 @@ function calcAlertas(
   limitePrescricao: Date,
 ): AlertaCalculo[] {
   const alertas: AlertaCalculo[] = [];
+
+  // Sem gravidez na data da saída não há estabilidade, e o cálculo inteiro
+  // perde o fundamento. O aviso acompanha o resultado — antes ele só existia
+  // no formulário e sumia na hora de imprimir o memorial.
+  if (input.concepcao > input.demissao) {
+    alertas.push({
+      tipo: 'sem_estabilidade',
+      mensagem:
+      `A concepção (${formatDateBR(input.concepcao)}) é posterior à saída ` +
+      `(${formatDateBR(input.demissao)}). Na data da dispensa ela não estava grávida, ` +
+      'e sem gravidez não há estabilidade a indenizar (ADCT 10, II, "b"). ' +
+      'Confira a data de concepção antes de usar este cálculo.',
+    });
+  }
 
   // A bienal corre do fim do aviso prévio projetado a partir da saída real
   // (OJ 83 da SDI-1 do TST).
@@ -647,6 +718,7 @@ export function calculate(input: CalcInput): CalcResult {
     avisoPrevio: Math.max(0, r?.avisoPrevio ?? 0),
     decimoTerceiroAviso: Math.max(0, r?.decimoTerceiroAviso ?? 0),
     feriasAviso: Math.max(0, r?.feriasAviso ?? 0),
+    fgtsAviso: Math.max(0, r?.fgtsAviso ?? 0),
     multa477: Math.max(0, r?.multa477 ?? 0),
     outros:
     Math.max(0, r?.outros ?? 0) +
@@ -659,13 +731,18 @@ export function calculate(input: CalcInput): CalcResult {
     avisoDias,
     recebido,
     temAvisoPrevio(motivoSaida, tipoRegistro),
+    // Na doméstica o depósito é de 8%; os 3,2% da indenização compensatória
+    // são da verba principal, não do aviso.
+    0.08,
   );
 
   let multaFgts: MultaFgtsResult | null = null;
-  if (input.calcularMultaFgts) {
+  if (input.calcularMultaFgts && temMultaDe40(input.empregadaDomestica)) {
     multaFgts = calcMultaFgts(
       input,
-      tabela1.fgts,
+      // Só o depósito de 8% entra na base; a indenização compensatória da
+      // doméstica não, mas ali a multa nem é calculada.
+      (tabela1.fgtsDeposito ?? tabela1.fgts) + (tabela2.fgtsSobreAviso ?? 0),
       motivoSaida,
       tipoRegistro,
       vinculo?.fgts.devido ?? 0,

@@ -58,7 +58,10 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     ['Indenização', 'Salários do período', 'Salário mensal multiplicado pelos meses de estabilidade', `${fmt(sal)} × ${meses}`, t1.salarios, 'R$', ''],
     ['Indenização', '13º proporcional', 'Um doze avos do salário por mês de estabilidade', `(${fmt(sal)} / 12) × ${meses}`, t1.decimoTerceiro, 'R$', ''],
     ['Indenização', 'Férias + 1/3', 'Férias proporcionais aos meses de estabilidade, acrescidas de um terço', `((${fmt(sal)} / 12) × ${meses}) × 4/3`, t1.feriasComTerco, 'R$', ''],
-    ['Indenização', `FGTS (${aliquotaLabel})`, 'FGTS calculado sobre salários + 13º', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × ${aliquotaLabel}`, t1.fgts, 'R$', `${input.empregadaDomestica ? 'Alíquota doméstica 11,2%' : 'Alíquota CLT 8%'}. Férias indenizadas fora da base (Lei 8.036/90, art. 15, § 6º)`],
+    ['Indenização', 'FGTS (8%)', 'FGTS calculado sobre salários + 13º', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × 8%`, t1.fgtsDeposito ?? t1.fgts, 'R$', 'Férias indenizadas fora da base (Lei 8.036/90, art. 15, § 6º)'],
+    ...(input.empregadaDomestica ?
+      [['Indenização', 'Indenização compensatória (3,2%)', 'Substitui a multa de 40%, que não existe no contrato doméstico', `(${fmt(t1.salarios)} + ${fmt(t1.decimoTerceiro)}) × 3,2%`, t1.indenizacaoCompensatoria ?? 0, 'R$', 'LC 150/2015, art. 22']] :
+      []),
     ['Indenização', 'Subtotal Indenização', 'Soma das verbas de indenização + FGTS', 'Salários + 13º + Férias + FGTS', t1.total, 'R$', ''],
   ];
 
@@ -112,6 +115,9 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
         ['Rescisórias', '13º sobre aviso', 'Um doze avos do aviso prévio, já abatido o que foi pago', `devido ${fmt(t2.decimoTerceiroAviso)} − pago ${fmt(t2.decimoAviso?.recebido ?? 0)}`, t2.decimoAviso?.diferenca ?? t2.decimoTerceiroAviso, 'R$', ''],
         ['Rescisórias', 'Férias + 1/3 sobre aviso', 'Férias proporcionais sobre o aviso, já abatido o que foi pago', `devido ${fmt(t2.feriasComTercoAviso)} − pago ${fmt(t2.feriasAviso?.recebido ?? 0)}`, t2.feriasAviso?.diferenca ?? t2.feriasComTercoAviso, 'R$', ''],
       );
+    }
+    if (temAviso && (t2.fgtsSobreAviso ?? 0) > 0) {
+      rows.push(['Rescisórias', 'FGTS sobre o aviso', 'O aviso indenizado integra o tempo de serviço e sobre ele incide FGTS', `(${fmt(t2.avisoProvio)} + ${fmt(t2.decimoTerceiroAviso)}) × 8% = devido ${fmt(t2.fgtsSobreAviso ?? 0)} − pago ${fmt(t2.fgtsAviso?.recebido ?? 0)}`, t2.fgtsAviso?.diferenca ?? t2.fgtsSobreAviso ?? 0, 'R$', 'CLT 487, § 1º; Súmula 305 do TST']);
     }
     rows.push(
       ['Rescisórias', 'Multa art. 477', 'Multa por atraso no pagamento das verbas rescisórias', `devido ${fmt(t2.multa477)} − pago ${fmt(t2.multa477Verba?.recebido ?? 0)}`, t2.multa477Verba?.diferenca ?? t2.multa477, 'R$', temAviso ? '' : 'Contrato a termo: sem aviso prévio, mas a multa é devida pelas verbas da estabilidade não pagas na saída'],
@@ -200,7 +206,9 @@ export function exportCalculoGestante(input: CalcInput, result: CalcResult): voi
     [t2 ?
       'Verbas rescisórias incluídas: não foram pagas na saída e são devidas na dispensa projetada para o fim da estabilidade.' :
       'Verbas rescisórias não incluídas: já quitadas na rescisão por dispensa sem justa causa.'],
-    [mf ?
+    [input.empregadaDomestica ?
+      'Contrato doméstico: não há multa de 40%. Os 3,2% da indenização compensatória (LC 150/2015, art. 22) fazem as vezes dela e estão na verba de FGTS.' :
+      mf ?
       (mf.incluiPeriodoContrato === false ?
         'Multa de 40% do FGTS apurada apenas sobre o FGTS do período de estabilidade — a incidente sobre o período trabalhado já foi paga na rescisão.' :
         `Multa de 40% do FGTS apurada sobre o FGTS do período de estabilidade somado ao do contrato. ${mf.mesesTrabalhados > 0 ? 'Data de admissão informada.' : 'Sem data de admissão: FGTS do contrato zerado.'}`) :

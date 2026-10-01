@@ -88,7 +88,10 @@ Cálculo de Indenização:
 - Salários: ${formatBRL(t1.salarios)}
 - 13º: ${formatBRL(t1.decimoTerceiro)}
 - Férias + 1/3: ${formatBRL(t1.feriasComTerco)}
-- FGTS (${aliquotaFgts}): ${formatBRL(t1.fgts)}
+${input.empregadaDomestica
+  ? `- FGTS (8%): ${formatBRL(t1.fgtsDeposito ?? 0)}
+- Indenização compensatória (3,2%, LC 150/2015 art. 22): ${formatBRL(t1.indenizacaoCompensatoria ?? 0)}`
+  : `- FGTS (${aliquotaFgts}): ${formatBRL(t1.fgts)}`}
 Subtotal Indenização: ${formatBRL(t1.total)}`;
 
   if (vin) {
@@ -109,7 +112,8 @@ Cálculo das verbas rescisórias (devido / pago / diferença):${temAviso ? `
 - Aviso prévio: ${formatBRL(t2.avisoProvio)} / ${formatBRL(t2.aviso?.recebido ?? 0)} / ${formatBRL(t2.aviso?.diferenca ?? t2.avisoProvio)}
 - 13º sobre aviso: ${formatBRL(t2.decimoTerceiroAviso)} / ${formatBRL(t2.decimoAviso?.recebido ?? 0)} / ${formatBRL(t2.decimoAviso?.diferenca ?? t2.decimoTerceiroAviso)}
 - Férias + 1/3 sobre aviso: ${formatBRL(t2.feriasComTercoAviso)} / ${formatBRL(t2.feriasAviso?.recebido ?? 0)} / ${formatBRL(t2.feriasAviso?.diferenca ?? t2.feriasComTercoAviso)}` : ""}
-- Multa art. 477: ${formatBRL(t2.multa477)} / ${formatBRL(t2.multa477Verba?.recebido ?? 0)} / ${formatBRL(t2.multa477Verba?.diferenca ?? t2.multa477)}${(t2.outrosRecebidos ?? 0) > 0 ? `
+${(t2.fgtsSobreAviso ?? 0) > 0 ? `- FGTS sobre o aviso: ${formatBRL(t2.fgtsSobreAviso ?? 0)} / ${formatBRL(t2.fgtsAviso?.recebido ?? 0)} / ${formatBRL(t2.fgtsAviso?.diferenca ?? 0)}
+` : ""}- Multa art. 477: ${formatBRL(t2.multa477)} / ${formatBRL(t2.multa477Verba?.recebido ?? 0)} / ${formatBRL(t2.multa477Verba?.diferenca ?? t2.multa477)}${(t2.outrosRecebidos ?? 0) > 0 ? `
 - Outros recebidos: − ${formatBRL(t2.outrosRecebidos ?? 0)}` : ""}
 Subtotal Verbas Rescisórias: ${formatBRL(t2.total)}`;
   }
@@ -293,10 +297,32 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                   <td className="py-2.5 px-4">Férias + 1/3</td>
                   <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.feriasComTerco)}</td>
                 </tr>
-                <tr className="border-t">
-                  <td className="py-2.5 px-4">FGTS ({aliquotaFgts})</td>
-                  <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.fgts)}</td>
-                </tr>
+                {input.empregadaDomestica ? (
+                  <>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">FGTS (8%)</td>
+                      <td className="py-2.5 px-4 text-right font-medium">
+                        {formatBRL(t1.fgtsDeposito ?? 0)}
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2.5 px-4">
+                        Indenização compensatória (3,2%)
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          LC 150/2015, art. 22 — substitui a multa de 40%
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-medium">
+                        {formatBRL(t1.indenizacaoCompensatoria ?? 0)}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr className="border-t">
+                    <td className="py-2.5 px-4">FGTS ({aliquotaFgts})</td>
+                    <td className="py-2.5 px-4 text-right font-medium">{formatBRL(t1.fgts)}</td>
+                  </tr>
+                )}
                 <tr className="border-t bg-primary/5">
                   <td className="py-3 px-4 font-bold">Subtotal Indenização</td>
                   <td className="py-3 px-4 text-right font-bold text-primary text-lg">{formatBRL(t1.total)}</td>
@@ -421,6 +447,14 @@ TOTAL FINAL: ${formatBRL(result.totalFinal)}`;
                         devido={t2.feriasComTercoAviso}
                         verba={t2.feriasAviso}
                       />
+                      {(t2.fgtsSobreAviso ?? 0) > 0 && (
+                        <LinhaRescisoria
+                          nome="FGTS sobre o aviso"
+                          nota="8% sobre o aviso e o 13º dele (Súm. 305 do TST)"
+                          devido={t2.fgtsSobreAviso ?? 0}
+                          verba={t2.fgtsAviso}
+                        />
+                      )}
                     </>
                   )}
                   <LinhaRescisoria

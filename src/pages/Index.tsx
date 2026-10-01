@@ -222,6 +222,7 @@ const Index = () => {
     avisoPrevio: "",
     decimoTerceiroAviso: "",
     feriasAviso: "",
+    fgtsAviso: "",
     multa477: "",
     multa40: "",
     outros: "",
@@ -486,6 +487,7 @@ const Index = () => {
         avisoPrevio: valorNumerico(recebidoRescisao.avisoPrevio),
         decimoTerceiroAviso: valorNumerico(recebidoRescisao.decimoTerceiroAviso),
         feriasAviso: valorNumerico(recebidoRescisao.feriasAviso),
+        fgtsAviso: valorNumerico(recebidoRescisao.fgtsAviso),
         multa477: valorNumerico(recebidoRescisao.multa477),
         outros: valorNumerico(recebidoRescisao.outros),
         outrosDescricao: recebidoRescisao.outrosDescricao.trim() || undefined,
@@ -584,6 +586,9 @@ const Index = () => {
   // Trechos de tela reutilizados
   // ------------------------------------------------------------------
   const textoBaseMulta = (() => {
+    if (empregadaDomestica) {
+      return "Contrato doméstico não tem multa de 40%: os 3,2% da indenização compensatória (LC 150/2015, art. 22) fazem as vezes dela e já entram na verba de FGTS.";
+    }
     if (!calcularMultaFgts) return "Ative para incluir a multa de 40% do FGTS no cálculo.";
     if (semRegistro) {
       return "Base: FGTS de todo o período trabalhado + estabilidade. Sem registro, nada foi pago na saída.";
@@ -1043,7 +1048,11 @@ const Index = () => {
                       Calcular multa de FGTS de 40%?
                     </Label>
                   </div>
-                  <Switch id="calcularMultaFgts" checked={calcularMultaFgts} onCheckedChange={setCalcularMultaFgts} />
+                  <Switch
+                    id="calcularMultaFgts"
+                    checked={calcularMultaFgts && !empregadaDomestica}
+                    disabled={empregadaDomestica}
+                    onCheckedChange={setCalcularMultaFgts} />
                 </div>
                 <p className="text-xs text-muted-foreground">{textoBaseMulta}</p>
 
@@ -1087,13 +1096,20 @@ const Index = () => {
                       onChange={(e) => mudarRecebido("feriasAviso", e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
+                    <Label htmlFor="recFgtsAviso" className="text-xs">FGTS sobre o aviso</Label>
+                    <Input
+                      id="recFgtsAviso" type="number" min="0" step="0.01" placeholder="0,00"
+                      value={recebidoRescisao.fgtsAviso}
+                      onChange={(e) => mudarRecebido("fgtsAviso", e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="rec477" className="text-xs">Multa do art. 477</Label>
                     <Input
                       id="rec477" type="number" min="0" step="0.01" placeholder="0,00"
                       value={recebidoRescisao.multa477}
                       onChange={(e) => mudarRecebido("multa477", e.target.value)} />
                   </div>
-                  {calcularMultaFgts &&
+                  {calcularMultaFgts && !empregadaDomestica &&
                   <div className="space-y-1.5">
                       <Label htmlFor="rec40" className="text-xs">Multa de 40% do FGTS</Label>
                       <Input

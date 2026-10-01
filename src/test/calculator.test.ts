@@ -4,6 +4,7 @@ import {
   resolveMotivoSaida,
   resolveTipoRegistro,
   calcAvisoDias,
+  calcMesesAteParto,
   CalcInput,
   MotivoSaida,
   VinculoRecebido,
@@ -18,6 +19,7 @@ import {
  * FGTS da estabilidade = 8% × (24.000 + 2.000) = 2.080,00
  *   As férias indenizadas ficam fora da base (Lei 8.036/90, art. 15, § 6º).
  * FGTS do contrato     = 6 × 2.000 × 8%        =   960,00
+ * FGTS sobre o aviso    = 8% × (2.200 + 183,33) =   190,67  (Súm. 305 TST)
  *
  * A multa do art. 477 (1 salário = 2.000) entra em todo motivo de saída: a
  * ação cobra verbas da estabilidade que já deviam ter sido pagas.
@@ -70,14 +72,17 @@ function makeVinculo(
 
 const FGTS_ESTABILIDADE = 2080;
 const FGTS_CONTRATO = 960;
+const FGTS_AVISO = 190.6667;
 
 describe("multa de 40% do FGTS por motivo da saída", () => {
-  it("a base é sempre completa: estabilidade + contrato trabalhado", () => {
+  it("a base é sempre completa: estabilidade + contrato + FGTS do aviso", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa"));
 
     expect(r.multaFgts!.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
-    expect(r.multaFgts!.multa40Devida).toBeCloseTo(1216, 2);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(
+      FGTS_ESTABILIDADE + FGTS_CONTRATO + FGTS_AVISO, 2,
+    );
+    expect(r.multaFgts!.multa40Devida).toBeCloseTo(1292.27, 2);
   });
 
   it("abate a multa de 40% que a empresa pagou na rescisão", () => {
@@ -88,14 +93,14 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
     }));
 
     expect(r.multaFgts!.multa40Paga).toBeCloseTo(384, 2);
-    expect(r.multaFgts!.multa40).toBeCloseTo(832, 2);
+    expect(r.multaFgts!.multa40).toBeCloseTo(908.27, 2);
   });
 
   it("cobra a diferença quando a empresa pagou os 40% sobre base menor", () => {
     const r = calculate(makeInput("dispensa_sem_justa_causa", { multa40Recebida: 200 }));
 
-    // 1.216,00 devidos − 200,00 pagos. Antes essa diferença sumia.
-    expect(r.multaFgts!.multa40).toBeCloseTo(1016, 2);
+    // 1.292,27 devidos − 200,00 pagos. Antes essa diferença sumia.
+    expect(r.multaFgts!.multa40).toBeCloseTo(1092.27, 2);
   });
 
   it("não deixa a multa ficar negativa quando o pago supera o devido", () => {
@@ -113,18 +118,21 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
 
     expect(r.multaFgts!.incluiPeriodoContrato).toBe(true);
     expect(r.multaFgts!.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
-    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
-    expect(r.multaFgts!.multa40).toBeCloseTo(1216, 2);
+    expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(
+      FGTS_ESTABILIDADE + FGTS_CONTRATO + FGTS_AVISO, 2,
+    );
+    expect(r.multaFgts!.multa40).toBeCloseTo(1292.27, 2);
   });
 
-  it("no término de experiência no prazo, alcança os dois períodos", () => {
+  it("no término de experiência no prazo, o período trabalhado entra na base", () => {
     const experiencia = calculate(makeInput("fim_experiencia"));
     const pedido = calculate(makeInput("pedido_demissao"));
 
-    // No fim do termo a empresa não paga 40%, então o período trabalhado entra
-    // na base — igual ao pedido de demissão.
-    expect(experiencia.multaFgts!.multa40).toBeCloseTo(pedido.multaFgts!.multa40, 2);
-    // Mas o total é menor: contrato a termo não tem aviso prévio.
+    // Sem aviso prévio, não há FGTS de aviso para somar à base.
+    expect(experiencia.multaFgts!.baseTotalFgts).toBeCloseTo(
+      FGTS_ESTABILIDADE + FGTS_CONTRATO, 2,
+    );
+    expect(experiencia.multaFgts!.multa40).toBeCloseTo(1216, 2);
     expect(experiencia.totalFinal).toBeLessThan(pedido.totalFinal);
   });
 
@@ -133,6 +141,23 @@ describe("multa de 40% do FGTS por motivo da saída", () => {
       const r = calculate(makeInput(motivo));
       expect(r.multaFgts!.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO, 2);
     }
+  });
+
+  it("não há multa de 40% no contrato doméstico", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", { empregadaDomestica: true }));
+
+    // Os 3,2% do art. 22 da LC 150/2015 substituem a multa.
+    expect(r.multaFgts).toBeNull();
+    expect(r.tabela1.fgtsDeposito).toBeCloseTo(2080, 2);
+    expect(r.tabela1.indenizacaoCompensatoria).toBeCloseTo(832, 2);
+    expect(r.tabela1.fgts).toBeCloseTo(2912, 2);
+  });
+
+  it("o FGTS do aviso prévio entra na base da multa (Súmula 305 do TST)", () => {
+    const r = calculate(makeInput("pedido_demissao"));
+
+    expect(r.tabela2!.fgtsSobreAviso).toBeCloseTo(FGTS_AVISO, 2);
+    expect(r.tabela2!.fgtsAviso!.diferenca).toBeCloseTo(FGTS_AVISO, 2);
   });
 
   it("não calcula multa quando o cálculo está desativado", () => {
@@ -205,6 +230,33 @@ describe("verbas rescisórias por motivo da saída", () => {
 
     expect(r.tabela2!.outrosRecebidos).toBe(500);
     expect(r.tabela2!.total).toBe(1500);
+  });
+});
+
+describe("contagem de meses pela regra dos 14 dias (CLT 146)", () => {
+  it("a fração de até 14 dias não vira mês na estabilidade", () => {
+    // 2 meses e 4 dias. O arredondamento antigo devolvia 3.
+    expect(calcMesesAteParto(new Date(2025, 0, 1), new Date(2025, 2, 5))).toBe(2);
+  });
+
+  it("a fração de mais de 14 dias vira mês inteiro", () => {
+    expect(calcMesesAteParto(new Date(2025, 0, 1), new Date(2025, 2, 20))).toBe(3);
+  });
+});
+
+describe("alerta de concepção posterior à saída", () => {
+  it("avisa que não houve estabilidade quando a concepção é depois da saída", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa", {
+      demissao: new Date(2025, 0, 10),
+      concepcao: new Date(2025, 2, 1),
+    }));
+
+    expect((r.alertas ?? []).some((a) => a.tipo === "sem_estabilidade")).toBe(true);
+  });
+
+  it("não avisa quando a concepção é anterior à saída", () => {
+    const r = calculate(makeInput("dispensa_sem_justa_causa"));
+    expect((r.alertas ?? []).some((a) => a.tipo === "sem_estabilidade")).toBe(false);
   });
 });
 
@@ -327,7 +379,9 @@ describe("período trabalhado sem registro", () => {
 
     expect(mf.fgtsPeriodoContrato).toBeCloseTo(FGTS_CONTRATO, 2);
     expect(mf.fgtsPeriodoVinculo).toBeCloseTo(1146.67, 2);
-    expect(mf.baseTotalFgts).toBeCloseTo(FGTS_ESTABILIDADE + FGTS_CONTRATO + 1146.67, 2);
+    expect(mf.baseTotalFgts).toBeCloseTo(
+      FGTS_ESTABILIDADE + FGTS_CONTRATO + (r.tabela2!.fgtsSobreAviso ?? 0) + 1146.67, 2,
+    );
   });
 
   it("abate das rescisórias o aviso e as verbas já pagas na saída", () => {
