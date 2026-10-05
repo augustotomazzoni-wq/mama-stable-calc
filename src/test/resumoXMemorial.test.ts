@@ -22,16 +22,33 @@ function makeInput(motivoSaida: MotivoSaida, overrides: Partial<CalcInput> = {})
   };
 }
 
-/** Exatamente a conta que o ResumoCalculos.tsx faz hoje. */
+/** Exatamente a conta que o ResumoCalculos.tsx faz. */
 function resumoAtual(result: ReturnType<typeof calculate>) {
+  const t2 = result.tabela2;
+  const dif = (verba: { diferenca: number } | undefined, cheio: number) =>
+    verba ? verba.diferenca : cheio;
+
+  const rescisoriasBrutas = t2 ?
+  dif(t2.aviso, t2.avisoProvio) +
+  dif(t2.decimoAviso, t2.decimoTerceiroAviso) +
+  dif(t2.feriasAviso, t2.feriasComTercoAviso) +
+  dif(t2.fgtsAviso, t2.fgtsSobreAviso ?? 0) +
+  (t2.devolucaoAvisoDescontado ?? 0) :
+  0;
+  const multa477Bruta = t2 ? dif(t2.multa477Verba, t2.multa477) : 0;
+  const outrosAbatidos = t2?.outrosRecebidos ?? 0;
+
   const indenizacao = result.tabela1.total;
   const periodoSemRegistro = result.vinculo ? result.vinculo.total : 0;
-  const verbasRescisorias = result.tabela2 ? result.tabela2.total : 0;
+  const verbasRescisorias = Math.max(0, rescisoriasBrutas - outrosAbatidos);
+  const sobra = Math.max(0, outrosAbatidos - rescisoriasBrutas);
+  const multa477 = Math.max(0, multa477Bruta - sobra);
   const multaFgts = result.multaFgts ? result.multaFgts.multa40 : 0;
   const pedidosAdicionais = result.opcionais ? result.opcionais.total : 0;
   return {
-    indenizacao, periodoSemRegistro, verbasRescisorias, multaFgts, pedidosAdicionais,
-    valorTotal: indenizacao + periodoSemRegistro + verbasRescisorias + multaFgts + pedidosAdicionais,
+    indenizacao, periodoSemRegistro, verbasRescisorias, multa477, multaFgts, pedidosAdicionais,
+    valorTotal:
+      indenizacao + periodoSemRegistro + verbasRescisorias + multa477 + multaFgts + pedidosAdicionais,
   };
 }
 
@@ -58,6 +75,26 @@ const CENARIOS: [string, CalcInput][] = [
     }),
   ],
   ["doméstica", makeInput("pedido_demissao", { empregadaDomestica: true })],
+  [
+    "abatimento geral que come parte da multa do 477",
+    makeInput("pedido_demissao", {
+      naoRecebeuTudoNaSaida: true,
+      recebidoNaRescisao: {
+        avisoPrevio: 0, decimoTerceiroAviso: 0, feriasAviso: 0, fgtsAviso: 0,
+        multa477: 0, outros: 4000,
+      },
+    }),
+  ],
+  [
+    "abatimento geral que zera as rescisórias",
+    makeInput("pedido_demissao", {
+      naoRecebeuTudoNaSaida: true,
+      recebidoNaRescisao: {
+        avisoPrevio: 0, decimoTerceiroAviso: 0, feriasAviso: 0, fgtsAviso: 0,
+        multa477: 0, outros: 99999,
+      },
+    }),
+  ],
 ];
 
 describe("Resumo de Cálculos x Memorial", () => {
@@ -71,7 +108,16 @@ describe("Resumo de Cálculos x Memorial", () => {
     it(`as rescisórias reproduzem o subtotal do memorial: ${nome}`, () => {
       const r = calculate(input);
       const z = resumoAtual(r);
-      expect(z.verbasRescisorias).toBeCloseTo(r.tabela2!.total, 2);
+      expect(z.verbasRescisorias + z.multa477).toBeCloseTo(r.tabela2!.total, 2);
+    });
+
+    it(`a linha da multa do 477 é a diferença apurada no memorial: ${nome}`, () => {
+      const r = calculate(input);
+      const z = resumoAtual(r);
+      // Sem abatimento geral, a linha é exatamente a diferença da verba.
+      if ((r.tabela2!.outrosRecebidos ?? 0) === 0) {
+        expect(z.multa477).toBeCloseTo(r.tabela2!.multa477Verba!.diferenca, 2);
+      }
     });
   }
 });
