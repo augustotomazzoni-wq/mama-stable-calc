@@ -77,11 +77,6 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
   const alertas = result.alertas ?? [];
   const tipoRegistro = tipoRegistroDe(input, result);
   const semRegistro = tipoRegistro === "sem_registro";
-  // A numeração acompanha as seções que existem neste cálculo.
-  const nVinculo = 3;
-  const nRescisorias = 3 + (vin ? 1 : 0);
-  const nMulta = 3 + (vin ? 1 : 0) + (t2 ? 1 : 0);
-  const nOpcionais = nMulta + (mf ? 1 : 0);
   const aliquotaLabel = input.empregadaDomestica ? "11,2%" : "8%";
   const meses = result.mesesEstabilidade;
   // Estabilidade e rescisão usam o piso quando ele supera o salário pago.
@@ -148,10 +143,10 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         </h1>
       </div>
 
-      {/* 1. Dados do Caso */}
+      {/* Dados do Caso */}
       <section>
         <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-          1. Dados do Caso
+          Dados do Caso
         </h2>
         <div className="grid grid-cols-1 gap-y-1.5">
           {dadosItems.map((item) => (
@@ -166,10 +161,10 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         </div>
       </section>
 
-      {/* 2. Cálculo de Indenização */}
+      {/* Cálculo de Indenização */}
       <section>
         <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-          2. Cálculo de Indenização
+          Cálculo de Indenização
         </h2>
 
         <LinhaVerba
@@ -215,7 +210,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
       {vin && (
         <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {nVinculo}. Período Trabalhado sem Registro
+            Período Trabalhado sem Registro
           </h2>
 
           <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
@@ -298,7 +293,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
       {t2 && (
         <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {nRescisorias}. Cálculo das Verbas Rescisórias
+            Cálculo das Verbas Rescisórias
           </h2>
 
           {temAviso && (
@@ -371,17 +366,17 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
         </section>
       )}
 
-      {/* 4. Multa de 40% do FGTS */}
+      {/* Multa de 40% do FGTS */}
       {mf && (
         <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {nMulta}. Multa de 40% do FGTS
+            Multa de 40% do FGTS
           </h2>
 
           <LinhaVerba
             titulo="FGTS sobre verbas indenizatórias"
             valor={mf.fgtsRescisorio}
-            formula={`Valor apurado no item 2: ${fmt(mf.fgtsRescisorio)}`}
+            formula={`Apurado no Cálculo de Indenização: ${fmt(mf.fgtsRescisorio)}`}
           />
           {input.admissao &&
           <LinhaVerba
@@ -398,7 +393,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
             <LinhaVerba
               titulo="FGTS devido no período sem registro"
               valor={mf.fgtsPeriodoVinculo}
-              formula={`Apurado no item ${nVinculo}: ${fmt(mf.fgtsPeriodoVinculo)}`}
+              formula={`Apurado no Período Trabalhado sem Registro: ${fmt(mf.fgtsPeriodoVinculo)}`}
             />
           )}
           <div className="py-3 border-b border-border/60">
@@ -433,7 +428,7 @@ const MemoriaCalculoDetalhada = ({ input, result, onClose }: Props) => {
       {op &&
       <section>
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-foreground/20 pb-2 mb-4">
-            {nOpcionais}. Pedidos Adicionais
+            Pedidos Adicionais
           </h2>
           {op.seguroDesemprego > 0 &&
         <LinhaVerba
