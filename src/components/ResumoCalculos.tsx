@@ -34,40 +34,35 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
   // 2. Diferenças do período sem registro, já abatido o que foi pago
   const periodoSemRegistro = vin ? vin.total : 0;
 
-  // 3. Verbas rescisórias e multa do 477, cada uma pelo que é.
+  // 3. Verbas rescisórias: o subtotal que o Memorial apura.
   //
-  //    A versão anterior fatiava o subtotal da tabela 2 de um jeito que fazia a
-  //    soma fechar, mas produzia um número que não existia em nenhum outro
-  //    documento: a linha "Verbas Rescisórias" saía com a multa do 477 de fora
-  //    e a multa de 40% do FGTS escondida dentro. Conferindo o Resumo contra o
-  //    Memorial, o subtotal das rescisórias divergia de `multa40 − multa477` e
-  //    a multa de 40% não aparecia em linha nenhuma.
+  //    Antes esta tela refazia a conta por fora, somando os valores devidos do
+  //    aviso e descontando o total recebido. Isso deixou de bater quando a
+  //    tabela 2 passou a abater verba a verba e ganhou rubricas novas: o FGTS
+  //    sobre o aviso (Súmula 305) e a devolução do aviso descontado ficavam de
+  //    fora do Resumo, que vinha menor que o Memorial em todos os cenários.
   //
-  //    Aqui o aviso e seus reflexos ficam numa linha, o 477 em outra e a multa
-  //    de 40% na sua própria — exatamente como no Memorial. O que foi pago na
-  //    saída abate primeiro do aviso e, se sobrar, come a multa do 477; é o que
-  //    mantém a soma das duas igual ao subtotal da tabela 2, sem inventar valor.
-  const baseAviso = t2 ? t2.avisoProvio + t2.decimoTerceiroAviso + t2.feriasComTercoAviso : 0;
-  const verbasRescisorias = t2 ? Math.max(0, baseAviso - t2.jaRecebido) : 0;
-  const sobraDoAbatimento = t2 ? Math.max(0, t2.jaRecebido - baseAviso) : 0;
-  const multa477 = t2 ? Math.max(0, t2.multa477 - sobraDoAbatimento) : 0;
+  //    Agora cada linha é o subtotal da seção correspondente do Memorial. Não
+  //    há conta refeita aqui: os dois documentos mostram os mesmos números
+  //    porque leem o mesmo lugar, e a soma fecha com o total final por
+  //    construção.
+  const verbasRescisorias = t2 ? t2.total : 0;
 
-  // A multa de 40% do FGTS é verba rescisória, mas tem seção própria no
-  // Memorial — então aqui também, para os dois documentos baterem linha a linha.
+  // A multa de 40% do FGTS tem seção própria no Memorial — aqui também.
   const multaFgts = mf ? mf.multa40 : 0;
 
-  // Multa do 467, seguro-desemprego e dano moral, quando pedidos
+  // Seguro-desemprego e dano moral, quando pedidos.
   const pedidosAdicionais = op ? op.total : 0;
 
   // 4. Valor Total
   const valorTotal =
-    indenizacao + periodoSemRegistro + verbasRescisorias + multa477 + multaFgts + pedidosAdicionais;
+    indenizacao + periodoSemRegistro + verbasRescisorias + multaFgts + pedidosAdicionais;
 
   // 5. Honorários de Sucumbência (15%)
   const honorarios = valorTotal * 0.15;
 
   // 6. Total do cálculo de todas as verbas rescisórias
-  const totalVerbasRescisoriasObs = verbasRescisorias + multa477 + multaFgts;
+  const totalVerbasRescisoriasObs = verbasRescisorias + multaFgts;
 
   // 7. Valor da Ação = Valor Total + Honorários
   const valorDaAcao = valorTotal + honorarios;
@@ -95,10 +90,6 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
 
         {verbasRescisorias > 0 && (
           <LinhaResumo titulo="Cálculo das Verbas Rescisórias" valor={verbasRescisorias} />
-        )}
-
-        {multa477 > 0 && (
-          <LinhaResumo titulo="Multa Art. 477" valor={multa477} />
         )}
 
         {multaFgts > 0 && (
@@ -133,15 +124,15 @@ const ResumoCalculos = ({ input, result, onClose }: Props) => {
       </section>
 
       {/* Total do cálculo de todas as verbas rescisórias */}
-      {(verbasRescisorias > 0 || multa477 > 0 || multaFgts > 0) && (
+      {(verbasRescisorias > 0 || multaFgts > 0) && (
         <section className="border-t-2 border-foreground/30 pt-6">
           <div className="py-4">
             <p className="text-base font-bold text-foreground uppercase tracking-wide mb-1">
               Total do cálculo de todas as verbas rescisórias
             </p>
             <p className="text-xs text-muted-foreground mb-2">
-              Cálculo das Verbas Rescisórias ({formatBRL(verbasRescisorias)}) + Multa Art. 477 (
-              {formatBRL(multa477)}){multaFgts > 0 ? ` + Multa de 40% do FGTS (${formatBRL(multaFgts)})` : ""}
+              Cálculo das Verbas Rescisórias ({formatBRL(verbasRescisorias)})
+              {multaFgts > 0 ? ` + Multa de 40% do FGTS (${formatBRL(multaFgts)})` : ""}
             </p>
             <p className="text-lg text-foreground">
               <span className="font-bold tabular-nums">{formatBRL(totalVerbasRescisoriasObs)}</span>
